@@ -15,7 +15,6 @@ class Drone:
         # Calcolo Massa del Drone
         forme = sim.getObjectsInTree(radice,sim.sceneobject_shape)
         self.massa = 0 
-        g = 9.81
         for handle in forme:
             if sim.getObjectInt32Param(handle,sim.shapeintparam_static) == 0 :
                 # L'oggetto è dinamico e posso sommare la sua massa 
@@ -24,13 +23,50 @@ class Drone:
     
         print("Massa Totale:"+str(self.massa))
 
+        # Mappatura dei motori e delle loro caratteristiche
+        self.eliche = []
+        self.pos_eliche = []
+        for i in range(4):
+            self.eliche.append(sim.getObject(path+'/propeller['+str(i)+']/respondable'))
+
+            # Posizioni rispetto al drone
+            self.pos_eliche.append(sim.getObjectPosition(self.eliche[i],self.radice)) 
+
+        self.pos_eliche = np.array(self.pos_eliche) # 4x3, posizioni delle eliche nella terna del drone [m]
+
+        # Parametri dei motori (scelti da noi, non si leggono dalla scena)
+        self.k_f = param_motor['k_f']               # coefficiente di spinta [N/(rad/s)^2]
+        self.k_m = param_motor['k_m']               # coefficiente di coppia di drag [N*m/(rad/s)^2]
+        self.Omega_max = param_motor['Omega_max']   # velocità massima dei motori [rad/s]
+        self.tau_m = param_motor['tau_m']           # costante di tempo dei motori [s]
+        self.segni = np.array(param_motor['segni']) # verso di rotazione di ogni elica (+1/-1)
+
+        # Discretizzazione esatta della dinamica del motore sul passo di simulazione
+        self.dt = sim.getSimulationTimeStep()
+        self.alpha = 1 - np.exp(-self.dt / self.tau_m)
+
+        # Stato dei motori 
+        self.Omega = np.zeros(4)
+
+        x_eliche = self.pos_eliche[:,0]
+        y_eliche = self.pos_eliche[:,1]
+
+        # Righe della matrice di allocazione (mixer)
+        riga_T = self.k_f * np.ones(4) 
+        riga_tau_x = self.k_f * y_eliche
+        riga_tau_y = -self.k_f*x_eliche
+        riga_tau_z = self.k_m * self.segni
+
+        # Matrice M 
+        self.M = np.array([riga_T,riga_tau_x,riga_tau_y,riga_tau_z])
+        self.M_inv = np.linalg.inv(self.M)
+
         # Inizializzazione Variabili 
         self.p = np.zeros(3) # posizione in sistema inerziale [m]
         self.v = np.zeros(3) # velocità in sistema inerziale [m/sec]
         self.eta = np.zeros(3) # phi, theta , psi [rad] , angoli di eulero della matrice R
-        self.omega = np.zeros(3) # p, q, r velocità di rotazione rispetto agli assi del sistema inerziale
+        self.omega = np.zeros(3) # p, q, r velocità di rotazione attorno agli assi del drone (terna body) [rad/sec]
         self.R = np.eye(3) # Matrice di rotazione 
-
 
         return
 
@@ -51,15 +87,38 @@ class Drone:
         angoli = [phi,theta,psi]
         self.eta = np.array(angoli)
         
-        # Estraggo le velocità di rotazione del corpo rispetto agli assi del mondo 
-        # velocità del corpo in m/sec e angoli roll , pitch , yaw in rad/sec 
-        v_body , omega_body = self.sim.getVelocity(self.radice)
-        self.v = v_body
-        self.omega = omega_body
+        # Velocità del baricentro calcolate dal motore fisico, entrambe in terna mondo
+        v_mondo , omega_mondo = self.sim.getVelocity(self.radice)
+        self.v = np.array(v_mondo)                  # velocità lineare nel mondo [m/sec]
+        self.omega = R.T @ np.array(omega_mondo)    # p, q, r in terna body [rad/sec]
 
         return 
 
-    def applica_comando(self,T , tau):
+    def applica_comando(self,T:float , tau:list):
+        # Mixer: da spinta totale [N] e coppie in terna body [N*m] alle velocità dei motori
+        u = np.array([T, tau[0], tau[1], tau[2]])
+        Omega2 = self.M_inv @ u             # quadrati delle velocità [(rad/sec)^2]
+        Omega2 = np.maximum(Omega2, 0)      # le eliche non possono spingere al contrario
+        Omega_cmd = np.sqrt(Omega2)         # [rad/sec]
 
-        F_totale = T*self.R[:,2]
-        return 
+        self.comanda_motori(Omega_cmd)
+
+        return
+
+
+    def comanda_motori(self, Omega_cmd):
+        # Saturazione: i motori girano solo tra 0 e Omega_max
+        Omega_cmd = np.clip(np.array(Omega_cmd), 0, self.Omega_max)
+
+        # Dinamica del primo ordine: la velocità reale insegue quella comandata
+        self.Omega = self.Omega + self.alpha * (Omega_cmd - self.Omega)
+
+        # Asse di spinta delle eliche (asse z del drone) espresso nel mondo
+        asse = self.R[:,2]
+
+        for i in range(4):
+            f = self.k_f * self.Omega[i]**2                     # spinta dell'elica [N]
+            Q = self.segni[i] * self.k_m * self.Omega[i]**2     # coppia di reazione [N*m]
+            self.sim.addForceAndTorque(self.eliche[i], (f*asse).tolist(), (Q*asse).tolist())
+
+        return
