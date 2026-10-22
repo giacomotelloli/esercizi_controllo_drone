@@ -23,6 +23,11 @@ class Drone:
     
         print("Massa Totale:"+str(self.massa))
 
+        # Inerzia del drone completo (serve al controllo d'assetto)
+        self.calcola_inerzia(forme)
+        print("Baricentro in terna body:"+str(self.baricentro))
+        print("Inerzia J [kg*m^2]:\n"+str(self.J))
+
         # Mappatura dei motori e delle loro caratteristiche
         self.eliche = []
         self.pos_eliche = []
@@ -40,6 +45,7 @@ class Drone:
         self.Omega_max = param_motor['Omega_max']   # velocità massima dei motori [rad/s]
         self.tau_m = param_motor['tau_m']           # costante di tempo dei motori [s]
         self.segni = np.array(param_motor['segni']) # verso di rotazione di ogni elica (+1/-1)
+        self.T_max = 4 * self.k_f * self.Omega_max**2 # spinta totale con tutti i motori al massimo [N]
 
         # Discretizzazione esatta della dinamica del motore sul passo di simulazione
         self.dt = sim.getSimulationTimeStep()
@@ -67,6 +73,38 @@ class Drone:
         self.eta = np.zeros(3) # phi, theta , psi [rad] , angoli di eulero della matrice R
         self.omega = np.zeros(3) # p, q, r velocità di rotazione attorno agli assi del drone (terna body) [rad/sec]
         self.R = np.eye(3) # Matrice di rotazione 
+
+        return
+
+    def calcola_inerzia(self, forme):
+        # Inerzia dell'insieme dei pezzi dinamici attorno al baricentro comune, negli assi della terna body (self.drone)
+        masse = []
+        baricentri = []  # baricentro di ogni pezzo in terna body [m]
+        inerzie = []     # inerzia di ogni pezzo attorno al proprio baricentro, assi body [kg*m^2]
+        for handle in forme:
+            if self.sim.getObjectInt32Param(handle,self.sim.shapeintparam_static) == 0 :
+                # Inerzia attorno al baricentro del pezzo, con gli assi della terna del pezzo
+                I_pezzo, com = self.sim.getShapeInertia(handle)
+                I_pezzo = np.array(I_pezzo).reshape(3,3)
+                c_pezzo = np.array([com[3], com[7], com[11]])
+
+                # Posa del pezzo rispetto alla terna body
+                mat = np.array(self.sim.getObjectMatrix(handle, self.drone)).reshape(3,4)
+                R_pezzo = mat[:,:3]
+
+                masse.append(self.sim.getShapeMass(handle))
+                baricentri.append(R_pezzo @ c_pezzo + mat[:,3])
+                inerzie.append(R_pezzo @ I_pezzo @ R_pezzo.T)
+
+        masse = np.array(masse)
+        baricentri = np.array(baricentri)
+        self.baricentro = masse @ baricentri / np.sum(masse)  # baricentro complessivo in terna body [m]
+
+        # Steiner: porto l'inerzia di ogni pezzo nel baricentro complessivo
+        self.J = np.zeros((3,3))
+        for m_i, c_i, I_i in zip(masse, baricentri, inerzie):
+            d = c_i - self.baricentro
+            self.J += I_i + m_i * (np.dot(d,d)*np.eye(3) - np.outer(d,d))
 
         return
 
