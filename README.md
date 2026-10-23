@@ -1,6 +1,13 @@
 # esercizi_controllo_drone
 esercizi di teoria del controllo per un quadrirotore 
 
+## Struttura
+
+- `comune/drone.py`: classe `Drone`, comune a tutti gli esercizi (stato, mixer, motori). Ogni main la importa con `from comune.drone import Drone`.
+- `Backstepping_control/`: controllo backstepping
+- `DFL_control/`: controllo con linearizzazione dinamica in retroazione (DFL)
+- `Geometric_control/`: controllo geometrico
+
 ## Backstepping con CoppeliaSim + Python — come farlo girare
 
 Guida teorica (modello, derivazioni, test): [Backstepping_control/STEPS_backstepping.md](Backstepping_control/STEPS_backstepping.md)
