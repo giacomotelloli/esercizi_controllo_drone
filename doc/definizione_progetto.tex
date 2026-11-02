@@ -1,0 +1,226 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage[skip=6pt]{caption}
+\usepackage[hidelinks]{hyperref}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\title{Confronto tra leggi di controllo non lineari per un quadrirotore:\\
+backstepping, linearizzazione in retroazione dinamica\\
+e controllo geometrico su SE(3)\\[0.6em]
+\large Definizione del progetto}
+\author{Giacomo Telloli\\[0.2em] \small Elective in Robotics}
+\date{Novembre 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Il progetto confronta tre leggi di controllo non lineari per l'inseguimento di traiettoria di un quadrirotore, presentate nel corso: backstepping, linearizzazione in retroazione dinamica e controllo geometrico su SE(3). I tre controllori vengono provati sullo stesso impianto simulato in CoppeliaSim e con la stessa taratura nominale, su tre riferimenti di difficoltà crescente e in condizioni operative diverse sia per l'ambiente sia per le caratteristiche fisiche del veicolo. Le prestazioni sono misurate con metriche numeriche di accuratezza, tempi di convergenza e di recupero, sforzo di controllo e costo computazionale, calcolate separatamente per ciascuna fase del volo. Lo scopo è individuare dove i tre metodi si equivalgono, dove si separano e per quale ragione strutturale.
+\end{abstract}
+
+\section{Introduzione e obiettivo}
+
+Nel corso sono state presentate diverse leggi di controllo non lineari per il quadrirotore~\cite{slide}. Il confronto svolto a lezione considera backstepping e linearizzazione in retroazione dinamica su una traiettoria a spirale, con e senza raffiche di vento, e valuta i risultati osservando le traiettorie ottenute. Il progetto riprende questa impostazione e la estende in tre direzioni:
+\begin{itemize}
+  \item include il controllo geometrico su SE(3)~\cite{lee};
+  \item usa più riferimenti, di difficoltà crescente, e varia non solo l'ambiente ma anche le caratteristiche fisiche del veicolo (rapporto spinta/peso e dinamica dei motori);
+  \item sostituisce la valutazione visiva con metriche numeriche, calcolate separatamente per ciascuna fase del volo.
+\end{itemize}
+
+\paragraph{Obiettivo.} Stabilire in modo quantitativo e riproducibile in quali condizioni le prestazioni dei tre metodi differiscono, e ricondurre ogni differenza osservata alla struttura del metodo.
+
+\paragraph{Domande.} Il confronto è organizzato attorno alle seguenti domande:
+\begin{enumerate}
+  \item a bassa difficoltà e con la stessa taratura nominale, i tre metodi sono equivalenti?
+  \item come cambia il confronto quando il riferimento diventa più difficile, cioè più veloce, con assetti più inclinati o meno regolare?
+  \item quale metodo recupera da condizioni iniziali estreme, come un drone molto inclinato o capovolto?
+  \item quale metodo resiste meglio a disturbi non modellati, come vento e raffiche?
+  \item come incidono i limiti fisici del veicolo, cioè una minore riserva di spinta e motori più lenti?
+  \item quanto costa calcolare ciascuna legge di controllo?
+\end{enumerate}
+
+Le differenze strutturali tra i metodi indicano dove cercare. Backstepping e linearizzazione in retroazione dinamica, nella forma vista nel corso, sono formulati sugli angoli di Eulero, che presentano singolarità e richiedono approssimazioni per assetti lontani dall'hover; il controllo geometrico lavora invece direttamente su SO(3), senza coordinate locali. La linearizzazione in retroazione dinamica si basa sulla cancellazione esatta del modello nominale e su un compensatore dinamico sulla spinta, caratteristiche che possono renderla più sensibile a disturbi non modellati e alla saturazione degli attuatori. I metodi richiedono infine un diverso grado di regolarità del riferimento. Queste considerazioni saranno tradotte in ipotesi esplicite, formulate prima delle simulazioni e verificate sui risultati.
+
+\section{Formulazione del problema}
+
+\subsection{Modello dell'impianto}
+
+L'impianto è lo stesso per tutti i controllori:
+\begin{equation}
+\begin{aligned}
+\dot p &= v, & m\,\dot v &= -mg\,e_3 + T\,R\,e_3 + F_e,\\
+\dot R &= R\,\hat\omega, & J\,\dot\omega &= -\omega \times J\omega + \tau,\\
+\begin{pmatrix} T \\ \tau \end{pmatrix} &= M\,\Omega^2, & \tau_m\,\dot\Omega_i &= \Omega_{cmd,i} - \Omega_i, \qquad 0 \le \Omega_i \le \Omega_{max},
+\end{aligned}
+\end{equation}
+dove $p$ e $v$ sono posizione e velocità in terna inerziale (asse $z$ verso l'alto), $R \in SO(3)$ è l'assetto, $\omega$ la velocità angolare in terna corpo, $m$ e $J$ massa e inerzia, $T$ la spinta totale, $\tau$ le coppie e $F_e$ le forze esterne dovute all'aria. Ogni motore ha una dinamica del primo ordine con costante di tempo $\tau_m$ e velocità limitata nell'intervallo $[0, \Omega_{max}]$; la matrice di allocazione $M$ lega i quadrati delle velocità dei motori ($\Omega^2$, componente per componente) a spinta e coppie.
+
+\subsection{Obiettivo di controllo e leggi confrontate}
+
+Il compito è l'inseguimento delle uscite piatte $y = (p, \psi)$, cioè posizione e angolo di imbardata, lungo un riferimento $y_d(t) = (p_d(t), \psi_d(t))$ sufficientemente regolare. Ciascun controllore è una legge della forma
+\begin{equation}
+u = (T_{cmd}, \tau_{cmd}) = \kappa_c\big(x,\ \xi_c,\ y_d(t), \dots, y_d^{(4)}(t)\big), \qquad c \in \{\text{BS}, \text{DFL}, \text{GEO}\},
+\end{equation}
+dove $x = (p, v, R, \omega)$ è lo stato misurato e $\xi_c$ l'eventuale stato interno del controllore.
+\begin{itemize}
+  \item \textbf{Backstepping (BS)}~\cite{slide,madani,bouabdallah}: progetto ricorsivo basato su funzioni di Lyapunov, con una cascata posizione--assetto sugli angoli di Eulero; l'assetto desiderato si ricava dalla direzione della spinta richiesta dall'anello di posizione.
+  \item \textbf{Linearizzazione in retroazione dinamica (DFL)}~\cite{slide}: un'estensione dinamica sulla spinta, con $T$ e $\dot T$ come stati di un compensatore, rende il sistema linearizzabile e disaccoppiato rispetto alle uscite $(x, y, z, \psi)$; l'errore di inseguimento segue una dinamica lineare assegnata.
+  \item \textbf{Controllo geometrico (GEO)}~\cite{slide,lee}: legge definita direttamente su SE(3), con errori d'assetto su SO(3); evita le singolarità delle coordinate locali e ha proprietà di convergenza quasi globale.
+\end{itemize}
+Nessuna delle tre leggi modella la dinamica dei motori, le saturazioni o le forze esterne: sono queste le differenze tra modello di progetto e impianto su cui si misura la robustezza.
+
+\subsection{Formalizzazione del confronto}
+
+Una prova è individuata dalla quaterna $(c, r, s, \ell)$: il controllore $c$, il riferimento $r$, lo scenario $s$ e il livello $\ell$, che rappresenta l'intensità dello scenario oppure, nel caso nominale, la difficoltà del riferimento. Per ogni fase del volo $f$ la prova produce un vettore di metriche $m(c, r, s, \ell, f)$. Su questi vettori si eseguono due confronti:
+\begin{itemize}
+  \item \textbf{tra metodi}: a $(r, s, \ell, f)$ fissati cambia solo $c$, quindi ogni differenza è attribuibile al controllore;
+  \item \textbf{effetto di uno scenario}: a $c$ fissato, il confronto con il caso nominale isola l'effetto della sola condizione modificata.
+\end{itemize}
+
+\section{Metodologia}
+
+\subsection{Ambiente di simulazione}
+
+La dinamica del corpo rigido e i contatti sono calcolati da CoppeliaSim. I controllori sono scritti in Python e collegati al simulatore tramite la ZMQ Remote API in modalità sincrona: ogni passo di simulazione viene avanzato dall'anello di controllo, così che i tempi siano identici per tutti i controllori e le prove siano ripetibili. Il veicolo è attuato a livello di elica: un modello comune applica a ciascuna elica la spinta e la coppia di reazione prodotte dal relativo motore, includendo dinamica e saturazione dei motori.
+
+\subsection{Condizioni di parità e taratura}
+
+Perché una differenza sia attribuibile al metodo, tutti i controllori condividono: impianto e parametri dei motori, passo di controllo, stato misurato, riferimento con le sue derivate, condizioni iniziali e saturazioni, che sono solo quelle fisiche dei motori. Ricevono inoltre gli stessi parametri di modello (massa e inerzia).
+
+La taratura segue un criterio comune: si assegnano gli stessi poli nominali del sistema linearizzato attorno all'hover, una coppia più lenta per la posizione e una più veloce per l'assetto. L'equivalenza viene verificata con un piccolo gradino in hover, sul quale le risposte dei tre controllori devono risultare quasi sovrapposte. Per controllare che le conclusioni non dipendano dalla taratura scelta, alcune prove vengono ripetute con guadagni scalati.
+
+\subsection{Riferimenti}
+
+Si usano tre riferimenti, ciascuno con un parametro che ne regola la difficoltà:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l L L@{}}
+\toprule
+Test & Riferimento & Parametro di difficoltà \\
+\midrule
+T1 hover & posizione e imbardata costanti & condizione iniziale: errore di posizione crescente e inclinazione iniziale fino al drone quasi capovolto, separatamente su rollio e beccheggio \\ \addlinespace
+T2 otto & lemniscata nel piano orizzontale, con derivate analitiche & velocità di percorrenza, quindi inclinazione richiesta crescente \\ \addlinespace
+T3 waypoint & percorso tridimensionale interpolato con polinomi a minimo snap, con spigoli, salite, discese e rotazioni di imbardata & velocità media; in più, una variante con interpolazioni di regolarità diversa, confrontate a parità di inclinazione massima \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Sui test T2 e T3 l'inclinazione richiesta va da pochi gradi fino a circa \(60^\circ\), così da coprire sia il regime vicino all'hover sia manovre aggressive.
+
+\subsection{Scenari}
+
+Oltre al caso nominale, ogni riferimento viene provato in tre scenari. Ciascuno modifica una sola condizione, con tre livelli di intensità crescente uguali per tutti i riferimenti:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l L@{}}
+\toprule
+ & Scenario & Cosa cambia \\
+\midrule
+N & nominale & nessuna perturbazione \\ \addlinespace
+A & aria & attrito aerodinamico sulla velocità relativa all'aria, vento costante e raffiche \\ \addlinespace
+B & carico & massa e inerzia del veicolo, note al controllore: si riduce il rapporto spinta/peso, quindi la riserva per accelerare e, oltre una certa soglia, anche la capacità di generare coppia \\ \addlinespace
+C & motori & costante di tempo dei motori: la spinta cambia più lentamente \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Massa e velocità massima dei motori agiscono sulla stessa grandezza, il rapporto spinta/peso: per questo si varia solo la massa e la velocità massima dei motori resta fissa. Gli scenari B e C coprono così i due limiti fisici indipendenti del veicolo: quanto può spingere e quanto rapidamente può variare la spinta.
+
+\subsection{Disegno sperimentale}
+
+\begin{center}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+ & N nominale & A aria & B carico & C motori \\
+\midrule
+T1 hover & condizioni iniziali crescenti & 3 livelli & 3 livelli & 3 livelli \\
+T2 otto & velocità crescenti & 3 livelli & 3 livelli & 3 livelli \\
+T3 waypoint & velocità crescenti, regolarità & 3 livelli & 3 livelli & 3 livelli \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Nel caso nominale si scandisce la difficoltà del riferimento. Gli scenari si applicano invece a una difficoltà fissa, scelta dopo la campagna nominale come la più alta a cui tutti i controllori riescono con margine: così l'effetto dello scenario non si confonde con un fallimento già presente nel nominale. Il totale è dell'ordine di 150 simulazioni, eseguite in modo automatico.
+
+Ogni prova è divisa in fasi, con finestre temporali fissate in anticipo e uguali per tutti i controllori: \emph{convergenza} dall'errore iniziale, \emph{inseguimento} a regime, \emph{disturbo} (raffica e recupero) e \emph{arrivo} (comportamento dopo la fine del riferimento). Non tutti i test hanno tutte le fasi.
+
+\section{Grandezze misurate}
+
+Si confrontano solo la posizione e l'imbardata, uscite comuni ai tre controllori. L'errore d'assetto non è confrontabile, perché ciascun controllore calcola un proprio assetto desiderato. Con $e_p(t) = p_d(t) - p(t)$ e campioni $t_k$, $k = 1, \dots, N$, all'interno di una fase $[t_0, t_1]$:
+\begin{gather*}
+\bar e = \frac{1}{N}\sum_{k} \|e_p(t_k)\|, \qquad
+\mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_{k} \|e_p(t_k)\|^2}, \qquad
+e_{max} = \max_k \|e_p(t_k)\|,\\[0.4em]
+t_c = \min\big\{\bar t \ge t_0 : \|e_p(t)\| < \varepsilon \ \ \forall\, t \in [\bar t, t_1]\big\} - t_0 .
+\end{gather*}
+Il tempo di convergenza $t_c$ è dunque il primo istante dopo il quale l'errore resta sotto la soglia $\varepsilon$, non il primo attraversamento della soglia. L'insieme delle grandezze misurate, raggruppate per categoria, è riportato in Tabella~\ref{tab:metriche}.
+
+\begin{table}[tb]
+\centering
+\caption{Grandezze misurate in ogni prova, calcolate separatamente per fase del volo.}
+\label{tab:metriche}
+\begin{tabularx}{\textwidth}{@{}l L L@{}}
+\toprule
+Categoria & Grandezze & Domanda a cui risponde \\
+\midrule
+Accuratezza & errore medio, RMSE, errore massimo (totale e per asse), errore di imbardata, errore a regime & quanto bene il drone insegue il riferimento \\ \addlinespace
+Tempi & tempo di convergenza, sovraelongazione, picco di deviazione e tempo di recupero dopo un disturbo, ritardo d'arrivo & quanto rapidamente converge e recupera \\ \addlinespace
+Sforzo di controllo & valore efficace di spinta e coppie, regolarità dei comandi, frazione di tempo in saturazione, inclinazione massima & quanto spende e quanto vicino ai limiti lavora \\ \addlinespace
+Costo computazionale & tempo di esecuzione della sola legge di controllo, escluse comunicazione e simulazione: mediana, 99° percentile, rapporto con il passo & se è eseguibile in tempo reale e con quale margine \\ \addlinespace
+Esito & successo o fallimento della prova; nelle scansioni, il livello a cui il controllore smette di funzionare & fin dove il metodo funziona \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Per non attribuire significato a differenze trascurabili, una differenza tra controllori si considera rilevante solo se supera una soglia relativa e una assoluta, fissate prima dell'analisi, ed è maggiore della variabilità osservata tra ripetizioni.
+
+\section{Risultati attesi}
+
+\begin{itemize}
+  \item Tabelle delle metriche per riferimento, scenario, livello e fase del volo.
+  \item Una mappa di sintesi riferimenti $\times$ scenari, con il controllore migliore in ciascuna cella e il distacco dal secondo.
+  \item Curve di difficoltà (errore in funzione dell'inclinazione richiesta) e curve di degrado (errore in funzione dell'intensità dello scenario), con il livello a cui ciascun controllore smette di funzionare.
+  \item Una discussione che, per ciascuna ipotesi formulata, la confermi o la smentisca sulla base dei dati e ricolleghi le differenze osservate alla struttura dei metodi.
+  \item Codice e dati riproducibili: ogni simulazione registra i propri parametri e la versione del codice.
+\end{itemize}
+
+\section{Piano di lavoro}
+
+\begin{enumerate}
+  \item Infrastruttura comune: interfaccia unica per i controllori, modello delle perturbazioni, registrazione dei dati e calcolo delle metriche, collaudata con il backstepping, già implementato.
+  \item Implementazione della linearizzazione in retroazione dinamica e del controllo geometrico.
+  \item Taratura a poli uguali e verifica dell'equivalenza in hover.
+  \item Campagna nominale sui tre riferimenti.
+  \item Campagna degli scenari.
+  \item Analisi dei risultati e relazione finale.
+\end{enumerate}
+
+\begin{thebibliography}{9}
+
+\bibitem{slide}
+M.~Vendittelli, \emph{Elective in Robotics}, slide del corso: modellazione del quadrirotore, controllo backstepping, linearizzazione in retroazione dinamica, controllo geometrico su SE(3), confronto tra controllori.
+
+\bibitem{madani}
+T.~Madani, A.~Benallegue, ``Backstepping Control for a Quadrotor Helicopter'', \emph{Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 2006.
+
+\bibitem{bouabdallah}
+S.~Bouabdallah, R.~Siegwart, ``Full Control of a Quadrotor'', \emph{Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 2007.
+
+\bibitem{lee}
+T.~Lee, M.~Leok, N.~H.~McClamroch, ``Geometric Tracking Control of a Quadrotor UAV on SE(3)'', \emph{Proceedings of the 49th IEEE Conference on Decision and Control (CDC)}, 2010.
+
+\end{thebibliography}
+
+\end{document}
