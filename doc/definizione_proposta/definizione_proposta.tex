@@ -1,0 +1,193 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage[skip=6pt]{caption}
+\usepackage[hidelinks]{hyperref}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\title{Proposta Progetto Elective in Robotics (Parte 1)}
+\author{Giacomo Telloli\\[0.2em]}
+\date{Novembre 2026}
+
+\begin{document}
+\maketitle
+\section{Introduzione e obiettivo}
+
+\paragraph{Obiettivo.} Stabilire in modo quantitativo e riproducibile in quali condizioni le prestazioni dei tre metodi di controllo Backstepping , DFL e SE(3) differiscono a seconda degli scenari proposti
+
+\paragraph{Domande.} Il confronto è organizzato attorno alle seguenti domande:
+\begin{enumerate}
+  \item a bassa difficoltà e con la stessa taratura nominale, i tre metodi sono equivalenti?
+  \item come cambia il confronto quando il riferimento diventa più difficile, cioè più veloce, con assetti più inclinati o meno regolare?
+  \item quale metodo recupera da condizioni iniziali estreme, come un drone molto inclinato o capovolto?
+  \item quale metodo resiste meglio a disturbi non modellati, come vento e raffiche?
+  \item come incidono i limiti fisici del veicolo, cioè una minore riserva di spinta e motori più lenti?
+  \item quanto costa calcolare ciascuna legge di controllo?
+\end{enumerate}
+
+Le differenze strutturali tra i metodi indicano dove cercare. Backstepping e linearizzazione in retroazione dinamica, nella forma vista nel corso, sono formulati sugli angoli di Eulero, che presentano singolarità e richiedono approssimazioni per assetti lontani dall'hover; il controllo geometrico lavora invece direttamente su SO(3), senza coordinate locali. La linearizzazione in retroazione dinamica si basa sulla cancellazione esatta del modello nominale e su un compensatore dinamico sulla spinta, caratteristiche che possono renderla più sensibile a disturbi non modellati e alla saturazione degli attuatori. I metodi richiedono infine un diverso grado di regolarità del riferimento. Queste considerazioni saranno tradotte in ipotesi esplicite, formulate prima delle simulazioni e verificate sui risultati.
+
+\section{Formalizzazione del confronto}
+
+Una prova è individuata dalla quaterna $(c, r, s, \ell)$: il controllore $c$, il riferimento $r$, lo scenario $s$ e il livello $\ell$, che rappresenta l'intensità dello scenario oppure, nel caso nominale, la difficoltà del riferimento. Per ogni fase del volo $f$ la prova produce un vettore di metriche $m(c, r, s, \ell, f)$. Su questi vettori si eseguono due confronti:
+\begin{itemize}
+  \item \textbf{tra metodi}: a $(r, s, \ell, f)$ fissati cambia solo $c$, quindi ogni differenza è attribuibile al controllore;
+  \item \textbf{effetto di uno scenario}: a $c$ fissato, il confronto con il caso nominale isola l'effetto della sola condizione modificata.
+\end{itemize}
+
+\section{Metodologia}
+
+\subsection{Ambiente di simulazione}
+
+La dinamica del corpo rigido e i contatti sono calcolati da CoppeliaSim. I controllori sono scritti in Python e collegati al simulatore tramite la ZMQ Remote API in modalità sincrona: ogni passo di simulazione viene avanzato dall'anello di controllo, così che i tempi siano identici per tutti i controllori e le prove siano ripetibili. Il veicolo è attuato a livello di elica: un modello comune applica a ciascuna elica la spinta e la coppia di reazione prodotte dal relativo motore, includendo dinamica e saturazione dei motori.
+
+\subsection{Condizioni di parità}
+
+Perché una differenza sia attribuibile al metodo, tutti i controllori condividono: impianto e parametri dei motori, passo di controllo, stato misurato, riferimento con le sue derivate, condizioni iniziali e saturazioni, che sono solo quelle fisiche dei motori. Ricevono inoltre gli stessi parametri di modello (massa e inerzia). Il criterio di taratura dei guadagni è invece un punto da concordare, discusso nella Sezione~\ref{sec:taratura}.
+
+\subsection{Riferimenti}
+
+Si usano tre riferimenti, ciascuno con un parametro che ne regola la difficoltà:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l L L@{}}
+\toprule
+Test & Riferimento & Parametro di difficoltà \\
+\midrule
+T1 hover & posizione e imbardata costanti & condizione iniziale: errore di posizione crescente e inclinazione iniziale fino al drone quasi capovolto, separatamente su rollio e beccheggio \\ \addlinespace
+T2 otto & traiettoria a forma di otto nel piano orizzontale, con derivate analitiche & velocità di percorrenza, quindi inclinazione richiesta crescente \\ \addlinespace
+T3 waypoint & percorso tridimensionale interpolato con polinomi a minimo snap, con spigoli, salite, discese e rotazioni di imbardata & velocità media; in più, una variante con interpolazioni di regolarità diversa, confrontate a parità di inclinazione massima \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Sui test T2 e T3 l'inclinazione richiesta va da pochi gradi fino a circa \(60^\circ\), così da coprire sia il regime vicino all'hover sia manovre aggressive.
+
+\subsection{Scenari}
+
+Oltre al caso nominale, ogni riferimento viene provato in tre scenari. Ciascuno modifica una sola condizione, con tre livelli di intensità crescente uguali per tutti i riferimenti:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l l L@{}}
+\toprule
+ & Scenario & Cosa cambia \\
+\midrule
+N & nominale & nessuna perturbazione \\ \addlinespace
+A & aria & attrito aerodinamico sulla velocità relativa all'aria, vento costante e raffiche \\ \addlinespace
+B & carico & massa e inerzia del veicolo, note al controllore: si riduce il rapporto spinta/peso, quindi la riserva per accelerare e, oltre una certa soglia, anche la capacità di generare coppia \\ \addlinespace
+C & motori & costante di tempo dei motori: la spinta cambia più lentamente \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Massa e velocità massima dei motori agiscono sulla stessa grandezza, il rapporto spinta/peso: per questo si varia solo la massa e la velocità massima dei motori resta fissa. Gli scenari B e C coprono così i due limiti fisici indipendenti del veicolo: quanto può spingere e quanto rapidamente può variare la spinta.
+
+\subsection{Disegno sperimentale}
+
+\begin{center}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+ & N nominale & A aria & B carico & C motori \\
+\midrule
+T1 hover & condizioni iniziali crescenti & 3 livelli & 3 livelli & 3 livelli \\
+T2 otto & velocità crescenti & 3 livelli & 3 livelli & 3 livelli \\
+T3 waypoint & velocità crescenti, regolarità & 3 livelli & 3 livelli & 3 livelli \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Nel caso nominale si scandisce la difficoltà del riferimento. Gli scenari si applicano invece a una difficoltà fissa, scelta dopo la campagna nominale come la più alta a cui tutti i controllori riescono con margine: così l'effetto dello scenario non si confonde con un fallimento già presente nel nominale. Il totale è dell'ordine di 150 simulazioni, eseguite in modo automatico.
+
+Ogni prova è divisa in fasi, con finestre temporali fissate in anticipo e uguali per tutti i controllori: \emph{convergenza} dall'errore iniziale, \emph{inseguimento} a regime, \emph{disturbo} (raffica e recupero) e \emph{arrivo} (comportamento dopo la fine del riferimento). Non tutti i test hanno tutte le fasi.
+
+\subsection{Struttura del codice}
+
+Il codice Python è organizzato in classi con compiti separati, combinate da file main, uno per ogni scenario di simulazione:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}l L@{}}
+\toprule
+Elemento & Compito \\
+\midrule
+classe del drone & interfaccia comune verso il veicolo simulato: ricava massa e inerzia dalla scena, legge lo stato misurato e converte spinta e coppie comandate nelle velocità dei motori, applicando a ogni elica spinta e coppia di reazione con dinamica e saturazione dei motori \\ \addlinespace
+classi dei controllori & una classe per metodo (Backstepping, DFL, SE(3)), tutte con la stessa interfaccia: ricevono in costruzione i parametri di modello, i guadagni e il passo di controllo e, a ogni passo, calcolano spinta totale e coppie a partire dallo stato misurato e dal riferimento \\ \addlinespace
+classe delle traiettorie & genera i riferimenti T1, T2 e T3 e fornisce a ogni istante posizione e imbardata desiderate, con le derivate richieste dai controllori fino allo snap \\ \addlinespace
+file main & uno per ogni coppia riferimento--scenario del disegno sperimentale: apre la connessione con CoppeliaSim, inizializza il drone con le condizioni dello scenario, i tre controllori e la traiettoria, la stessa per tutti i controllori, ed esegue le simulazioni \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Ogni main esegue una simulazione per ciascun controllore e livello. All'inizio di ogni simulazione la scena torna alle condizioni iniziali e il controllore azzera il proprio stato interno; a ogni passo il main legge lo stato del drone, valuta il riferimento, calcola il comando con la legge di controllo, lo applica ai motori e fa avanzare il simulatore di un passo. Grazie all'interfaccia comune, il ciclo è lo stesso per tutti i controllori.
+
+I risultati sono salvati nella cartella \texttt{output}, che contiene una sottocartella per ogni simulazione eseguita. Il nome della sottocartella identifica la prova, cioè la quaterna $(c, r, s, \ell)$ (per esempio \texttt{output/T2\_A2\_DFL}); al suo interno si trovano le grandezze registrate durante il volo, i parametri della prova e la versione del codice usata. Le grandezze della Tabella~\ref{tab:metriche} si calcolano a partire da questi dati.
+
+\section{Grandezze misurate}
+
+Si confrontano solo la posizione e l'imbardata, uscite comuni ai tre controllori. L'errore d'assetto non è confrontabile, perché ciascun controllore calcola un proprio assetto desiderato. Con $e_p(t) = p_d(t) - p(t)$ e campioni $t_k$, $k = 1, \dots, N$, all'interno di una fase $[t_0, t_1]$:
+\begin{gather*}
+\bar e = \frac{1}{N}\sum_{k} \|e_p(t_k)\|, \qquad
+\mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_{k} \|e_p(t_k)\|^2}, \qquad
+e_{max} = \max_k \|e_p(t_k)\|,\\[0.4em]
+t_c = \min\big\{\bar t \ge t_0 : \|e_p(t)\| < \varepsilon \ \ \forall\, t \in [\bar t, t_1]\big\} - t_0 .
+\end{gather*}
+Il tempo di convergenza $t_c$ è dunque il primo istante dopo il quale l'errore resta sotto la soglia $\varepsilon$, non il primo attraversamento della soglia. L'insieme delle grandezze misurate, raggruppate per categoria, è riportato in Tabella~\ref{tab:metriche}.
+
+\begin{table}[tb]
+\centering
+\caption{Grandezze misurate in ogni prova, calcolate separatamente per fase del volo.}
+\label{tab:metriche}
+\begin{tabularx}{\textwidth}{@{}l L L@{}}
+\toprule
+Categoria & Grandezze & Domanda a cui risponde \\
+\midrule
+Accuratezza & errore medio, RMSE, errore massimo (totale e per asse), errore di imbardata, errore a regime & quanto bene il drone insegue il riferimento \\ \addlinespace
+Tempi & tempo di convergenza, sovraelongazione, picco di deviazione e tempo di recupero dopo un disturbo, ritardo d'arrivo & quanto rapidamente converge e recupera \\ \addlinespace
+Sforzo di controllo & valore efficace di spinta e coppie, regolarità dei comandi, frazione di tempo in saturazione, inclinazione massima & quanto spende e quanto vicino ai limiti lavora \\ \addlinespace
+Costo computazionale & tempo di esecuzione della sola legge di controllo, escluse comunicazione e simulazione: mediana, 99° percentile, rapporto con il passo & se è eseguibile in tempo reale e con quale margine \\ \addlinespace
+Esito & successo o fallimento della prova; nelle scansioni, il livello a cui il controllore smette di funzionare & fin dove il metodo funziona \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Per non attribuire significato a differenze trascurabili, una differenza tra controllori si considera rilevante solo se supera una soglia relativa e una assoluta, fissate prima dell'analisi, ed è maggiore della variabilità osservata tra ripetizioni.
+
+\section{Risultati attesi}
+
+\begin{itemize}
+  \item Tabelle delle metriche per riferimento, scenario, livello e fase del volo.
+  \item Una mappa di sintesi riferimenti $\times$ scenari, con il controllore migliore in ciascuna cella e il distacco dal secondo.
+  \item Curve di difficoltà (errore in funzione dell'inclinazione richiesta) e curve di degrado (errore in funzione dell'intensità dello scenario), con il livello a cui ciascun controllore smette di funzionare.
+  \item Una discussione che, per ciascuna ipotesi formulata, la confermi o la smentisca sulla base dei dati e ricolleghi le differenze osservate alla struttura dei metodi.
+  \item Codice e dati riproducibili: ogni simulazione registra i propri parametri e la versione del codice.
+\end{itemize}
+
+\section{Punto da concordare: taratura dei controllori}\label{sec:taratura}
+
+\paragraph{Domanda.} Quale criterio di taratura dei controllori è opportuno adottare perché il confronto tra i tre metodi sia equo?
+
+\begin{thebibliography}{9}
+
+\bibitem{slide}
+M.~Vendittelli, \emph{Elective in Robotics}, slide del corso: modellazione del quadrirotore, controllo backstepping, linearizzazione in retroazione dinamica, controllo geometrico su SE(3), confronto tra controllori.
+
+\bibitem{madani}
+T.~Madani, A.~Benallegue, ``Backstepping Control for a Quadrotor Helicopter'', \emph{Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 2006.
+
+\bibitem{bouabdallah}
+S.~Bouabdallah, R.~Siegwart, ``Full Control of a Quadrotor'', \emph{Proceedings of the IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)}, 2007.
+
+\bibitem{lee}
+T.~Lee, M.~Leok, N.~H.~McClamroch, ``Geometric Tracking Control of a Quadrotor UAV on SE(3)'', \emph{Proceedings of the 49th IEEE Conference on Decision and Control (CDC)}, 2010.
+\end{thebibliography}
+
+\end{document}
