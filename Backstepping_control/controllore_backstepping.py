@@ -1,19 +1,6 @@
 import numpy as np
 
-
-def angolo_in_pi(a):
-    # Riporta un angolo in [-pi, pi]
-    return (a + np.pi) % (2*np.pi) - np.pi
-
-
-def matrice_W(eta):
-    # Cinematica degli angoli ZYX: eta_dot = W(eta) @ omega, con omega in terna body
-    phi, theta, _ = eta
-    sf, cf = np.sin(phi), np.cos(phi)
-    tt, ct = np.tan(theta), np.cos(theta)
-    return np.array([[1, sf*tt, cf*tt],
-                     [0, cf,    -sf  ],
-                     [0, sf/ct, cf/ct]])
+from comune.rotazioni import angolo_in_pi, matrice_W
 
 
 class ControlloreBackstepping:
@@ -59,8 +46,10 @@ class ControlloreBackstepping:
 
         return
 
-    def calcola(self, p, v, eta, omega, rif:dict):
+    def calcola(self, stato:dict, rif:dict):
         # Stato misurato + riferimento -> spinta totale T [N] e coppie tau [N*m] in terna body
+        # stato: p, v, eta, omega (R non serve al BS); stessa interfaccia di DFL e controllo geometrico
+        p, v, eta, omega = stato['p'], stato['v'], stato['eta'], stato['omega']
         eta_dot = matrice_W(eta) @ omega
 
         self.mu = self._posizione(p, v, rif)

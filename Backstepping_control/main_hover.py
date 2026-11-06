@@ -150,7 +150,8 @@ if __name__ == "__main__":
         while (t := sim.getSimulationTime()) < DURATA:
             # 1. stato  2. controllo  3. attuazione  4. log  5. passo
             drone.aggiorna_stato()
-            T, tau = controllore.calcola(drone.p, drone.v, drone.eta, drone.omega, rif)
+            stato = {'p': drone.p, 'v': drone.v, 'R': drone.R, 'eta': drone.eta, 'omega': drone.omega}
+            T, tau = controllore.calcola(stato, rif)
             drone.applica_comando(T, tau)
 
             log['t'].append(t)

@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avanzamento del progetto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400&display=swap">
+<style>
+/* Stessi colori e caratteri di "Taratura del backstepping.html" e "Analisi lineare in hover.html" */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f6;
+  --surface: #fcfcfd;
+  --fg: #15181d;
+  --fg2: #4a515b;
+  --muted: #7c848f;
+  --axis: #b9bfc7;
+  --line: rgba(21, 24, 29, 0.11);
+  --accent: #1f5bb5;
+  --crit: #d03b3b;
+  --good-ink: #006300;
+  --warn-ink: #8a5600;
+  --bad-ink: #a82828;
+  --wash: rgba(42, 120, 214, 0.07);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+    --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+    --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440; --bad-ink: #f07a7a;
+    --wash: rgba(57, 135, 229, 0.12);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+  --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+  --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440; --bad-ink: #f07a7a;
+  --wash: rgba(57, 135, 229, 0.12);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.62 var(--f-body);
+  font-optical-sizing: auto;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 44px;
+}
+.col { max-width: 720px; width: 100%; margin: 0 auto; display: grid; gap: 14px; min-width: 0; }
+.col > * { margin: 0; }
+.wide { width: 100%; display: grid; gap: 14px; min-width: 0; }
+.wide > * { margin: 0; }
+section { display: grid; gap: 22px; min-width: 0; }
+
+h1, h2, h3 { font-family: var(--f-display); font-stretch: 88%; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 760; letter-spacing: -0.01em; }
+h2 { font-size: 27px; font-weight: 720; }
+h3 { font-size: 19px; font-weight: 680; margin-top: 8px; }
+.eyebrow { font: 600 12.5px/1.2 var(--f-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg2); }
+.sec-num { font: 500 14px var(--f-mono); color: var(--accent); display: block; margin-bottom: 6px; }
+.lede { font-size: 19.5px; line-height: 1.55; }
+.meta { font: 500 13px/1.5 var(--f-mono); color: var(--fg2); }
+p { text-wrap: pretty; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--wash); padding: 0.05em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+a { color: var(--accent); }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
+li::marker { color: var(--accent); }
+
+.note {
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  display: grid; gap: 6px;
+}
+.note > * { margin: 0; }
+.note.warn { border-left-color: var(--crit); }
+
+dl.findings { margin: 0; display: grid; gap: 0; }
+dl.findings div { display: grid; grid-template-columns: 190px 1fr; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+dl.findings dt { font: 650 15px/1.4 var(--f-display); font-stretch: 92%; }
+dl.findings dd { margin: 0; }
+@media (max-width: 600px) { dl.findings div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Le fasi del piano in una riga */
+ol.fasi { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 8px; }
+ol.fasi li { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--axis); border-radius: 8px; padding: 9px 11px 10px; display: grid; gap: 3px; align-content: start; }
+ol.fasi li.fatta { border-top-color: var(--good-ink); }
+ol.fasi li.parte { border-top-color: var(--warn-ink); }
+ol.fasi .n { font: 500 12px var(--f-mono); color: var(--fg2); }
+ol.fasi b { font: 650 14.5px/1.25 var(--f-display); font-stretch: 92%; }
+ol.fasi .st { font: 500 12px/1.3 var(--f-mono); }
+
+/* Stato: sempre icona + parola, mai solo colore */
+.st.fatta, .stato.fatta { color: var(--good-ink); }
+.st.parte, .stato.parte { color: var(--warn-ink); }
+.st.dafare, .stato.dafare { color: var(--fg2); }
+.stato { font: 500 12.5px var(--f-mono); white-space: nowrap; }
+
+/* Tabelle */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 13px/1.35 var(--f-display); color: var(--fg2); letter-spacing: 0.02em; background: var(--bg); }
+td.num { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.sub { color: var(--fg2); font-size: 14px; }
+td.name { font: 600 14.5px/1.35 var(--f-display); font-stretch: 92%; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+tr.grp td { background: var(--wash); font: 600 13px var(--f-display); color: var(--fg2); }
+.ok { color: var(--good-ink); font-family: var(--f-mono); font-size: 13.5px; white-space: nowrap; }
+.no { color: var(--bad-ink); font-family: var(--f-mono); font-size: 13.5px; white-space: nowrap; }
+.cap { font-size: 14.5px; color: var(--fg2); }
+td.file code { overflow-wrap: normal; }
+
+/* Su schermi stretti le tabelle di testo diventano schede impilate */
+@media (max-width: 640px) {
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; }
+  table.stack thead { display: none; }
+  table.stack tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  table.stack tr:last-child { border-bottom: 0; }
+  table.stack td { border-bottom: 0; padding: 3px 14px; }
+  table.stack td.name { white-space: normal; }
+  #fasi table.stack td.sub::before { content: "Finita quando: "; font: 600 12.5px var(--f-display); }
+  #decisioni table.stack td:nth-child(2):not(.nolab)::before { content: "Analisi"; display: block; font: 600 12.5px var(--f-display); color: var(--fg2); }
+  #decisioni table.stack td:nth-child(3)::before { content: "Proposta"; display: block; font: 600 12.5px var(--f-display); color: var(--fg2); }
+}
+.passi { counter-reset: p; list-style: none; padding: 0; gap: 0; }
+.passi li { counter-increment: p; display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+.passi li::before { content: counter(p); font: 600 15px var(--f-mono); color: var(--accent); }
+.passi li > div { display: grid; gap: 4px; }
+.passi li b { font: 650 15.5px/1.35 var(--f-display); font-stretch: 92%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="col">
+  <div class="eyebrow">Elective in Robotics · confronto BS / DFL / GEO · stato al 6 novembre 2026</div>
+  <h1>Avanzamento del progetto</h1>
+  <p class="lede">A che punto è il piano di <code>STEPS_progetto.md</code>, che cosa è stato scritto finora e che cosa resta da decidere prima di passare a CoppeliaSim.</p>
+  <p class="meta">Fotografia del repository: commit 7ce2369 più le modifiche non ancora committate. I numeri vengono da <code>analisi/lineare.py</code> (FASE 0) e dallo script di verifica delle classi (§3.3).</p>
+</header>
+
+<section class="wide" aria-label="Stato delle fasi">
+  <ol class="fasi">
+    <li class="fatta"><span class="n">FASE 0</span><b>Analisi lineare in hover</b><span class="st fatta">✓ fatta</span></li>
+    <li><span class="n">FASE 1</span><b>Taratura nel codice</b><span class="st dafare">○ da fare</span></li>
+    <li class="parte"><span class="n">FASE 2</span><b>Codice delle prove</b><span class="st parte">◐ solo l'interfaccia</span></li>
+    <li class="parte"><span class="n">FASE 3</span><b>DFL e GEO</b><span class="st parte">◐ classi scritte</span></li>
+    <li class="parte"><span class="n">FASE 4</span><b>Verifica della taratura</b><span class="st parte">◐ offline sì, Coppelia no</span></li>
+    <li><span class="n">FASE 5</span><b>Campagna nominale</b><span class="st dafare">○ da fare</span></li>
+    <li><span class="n">FASE 6</span><b>Scenari A, B, C</b><span class="st dafare">○ da fare</span></li>
+    <li><span class="n">FASE 7</span><b>Sensibilità (facoltativa)</b><span class="st dafare">○ da fare</span></li>
+    <li><span class="n">FASE 8</span><b>Analisi e presentazione</b><span class="st dafare">○ da fare</span></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 1 -->
+<section class="col" id="sintesi">
+  <div><span class="sec-num">1</span><h2>In sintesi</h2></div>
+  <dl class="findings">
+    <div><dt>Dove siamo</dt><dd>La FASE 0 è chiusa. Le classi di DFL e GEO sono scritte e hanno la stessa interfaccia del BS. Sono state verificate su un impianto non lineare in Python, non ancora in CoppeliaSim: sono pezzi delle FASI 3 e 4. L'infrastruttura delle prove (FASI 1 e 2) non è ancora cominciata.</dd></div>
+    <div><dt>La taratura regge</dt><dd>Con gli stessi poli, nel gradino di 10 cm le tre classi seguono la previsione lineare entro 3 µm. Le previsioni di BS/GEO e del DFL differiscono tra loro di 0.43 mm, quindi la soglia di 2 mm proposta per T1-N1 è adeguata.</dd></div>
+    <div><dt>Cosa cambia nel piano</dt><dd>Quattro risultati toccano decisioni già scritte. La specifica dei 50° non è rispettata all'attuatore. Con C3 = 80 ms lo scenario C non trova la soglia di rottura. La coppia di poli in più del DFL in quota pesa: a −9 doppio la risposta si allontana di 109 mm da BS e GEO. Il GEO con la derivata filtrata non usa jerk né snap, quindi H6 va riscritta.</dd></div>
+    <div><dt>Prime indicazioni su H3</dt><dd>Offline, BS e DFL non recuperano dal beccheggio a 120°, come previsto. Il DFL però fallisce anche sul rollio a 179°. Il GEO recupera da qualsiasi angolo, ma da 179° perde 15.8 m di quota.</dd></div>
+    <div><dt>Il prossimo passo</dt><dd>Scrivere <code>comune/taratura.py</code> e modificare il <code>Drone</code> (motori che partono da Ω<sub>h</sub>). Poi servono i main di DFL e GEO e T1-N1 in CoppeliaSim per i tre (FASE 4.2). L'elenco completo è al §7.</dd></div>
+  </dl>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="wide" id="fasi">
+  <div class="col"><div><span class="sec-num">2</span><h2>Le fasi del piano</h2></div>
+  <p>I criteri «finita quando» sono quelli di <code>STEPS_progetto.md</code>. Il §8 di <code>planning.md</code> usa ancora una numerazione vecchia, in cui la fase 0 è l'infrastruttura: qui vale quella di STEPS.</p></div>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Fase</th><th>Finita quando</th><th>Stato</th><th>Cosa c'è e cosa manca</th></tr></thead>
+      <tbody>
+        <tr><td class="name">0 · Analisi lineare</td><td class="sub"><code>analisi/lineare.py</code> riproduce i numeri dei blocchi Verifica</td><td><span class="stato fatta">✓ fatta</span></td><td>58 controlli su 58. Il rapporto è <a href="Analisi%20lineare%20in%20hover.html">Analisi lineare in hover.html</a>, e lo stesso script contiene anche le tarature a κ = 0.7 e 1.3 della FASE 7.</td></tr>
+        <tr><td class="name">1 · Taratura nel codice</td><td class="sub">i guadagni dei tre controllori escono da una sola funzione</td><td><span class="stato dafare">○ da fare</span></td><td><code>comune/taratura.py</code> non esiste. Le funzioni però ci sono già: <code>polinomio</code>, <code>guadagni_bs</code>, <code>coefficienti_dfl</code> e <code>scala_poli</code> sono in <code>analisi/lineare.py</code>, i guadagni del GEO nello script di verifica. Vanno spostate, non riscritte. <code>main_hover.py</code> ha ancora i <code>GUADAGNI</code> scritti a mano.</td></tr>
+        <tr><td class="name">2 · Codice delle prove</td><td class="sub">il BS gira su T1-N1 e T1-N2 lanciato da un main, con un log per prova</td><td><span class="stato parte">◐ in parte</span></td><td>Fatta solo l'interfaccia comune <code>calcola(stato, rif)</code>, il prerequisito del planning §7. Mancano <code>scenari.py</code>, <code>esecuzione.py</code>, <code>registro.py</code>, <code>aria.py</code>, l'otto in <code>traiettoria.py</code> e i main in <code>prove/</code>. Mancano anche le modifiche al <code>Drone</code>: i motori partono ancora da zero, e non ci sono il flag di saturazione, la spinta e le coppie realizzate, né τ<sub>m</sub> modificabile.</td></tr>
+        <tr><td class="name">3 · DFL e GEO</td><td class="sub">T1-N1 e T2 a ω = 0.8 convergono</td><td><span class="stato parte">◐ in parte</span></td><td>Le classi sono scritte e convergono offline su T1-N1 e T1-N2. In CoppeliaSim non hanno ancora volato: i loro <code>main.py</code> contengono solo gli import. T2 non si può ancora provare, perché l'otto non è scritto.</td></tr>
+        <tr><td class="name">4 · Verifica della taratura</td><td class="sub">T1-N1 coincide con la previsione lineare per tutti e tre</td><td><span class="stato parte">◐ in parte</span></td><td>La 4.1 è fatta offline, su un impianto non lineare: più severo dell'impianto lineare previsto dal piano. Lo script però è fuori dal repository. La 4.2, in CoppeliaSim con la soglia di 2 mm, è da fare.</td></tr>
+        <tr><td class="name">5 · Campagna nominale</td><td class="sub">curve di difficoltà e difficoltà di riferimento scelta</td><td><span class="stato dafare">○ da fare</span></td><td>Richiede le FASI 1–4.</td></tr>
+        <tr><td class="name">6 · Scenari A, B, C</td><td class="sub">mappa 3×4 e curve di degrado</td><td><span class="stato dafare">○ da fare</span></td><td>Le previsioni dell'analisi per B e C sono già scritte (§4, H5).</td></tr>
+        <tr><td class="name">7 · Sensibilità</td><td class="sub">classifica a κ = 0.7, 1, 1.3</td><td><span class="stato dafare">○ da fare</span></td><td>Le tre tarature e i loro margini sono già calcolati (Esercizio 14). Mancano le prove.</td></tr>
+        <tr><td class="name">8 · Analisi e presentazione</td><td class="sub">ogni ipotesi H1–H7 ha un verdetto</td><td><span class="stato dafare">○ da fare</span></td><td>I grafici della FASE 0 candidati per la presentazione sono già nel rapporto lineare: la carta di Nichols dell'assetto e le previsioni per C.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="col" id="fatto">
+  <div><span class="sec-num">3</span><h2>Che cosa è stato fatto</h2></div>
+
+  <h3>3.1 FASE 0: l'analisi lineare</h3>
+  <p><code>analisi/lineare.py</code> contiene:</p>
+  <ul>
+    <li>il modello linearizzato in hover, continuo e discreto nell'ordine del ciclo (il motore si aggiorna prima che la forza venga applicata);</li>
+    <li>le tre leggi linearizzate: il BS con derivate nulle, esatte o filtrate, il DFL e i doppi integratori di quota e yaw;</li>
+    <li>poli, risposte al gradino, margini, carte di Nichols, tutti gli esercizi della FASE 0 e i 58 controlli sui blocchi Verifica.</li>
+  </ul>
+  <p><code>analisi/rapporto_lineare.py</code> inserisce i numeri nel modello <code>analisi/modello_rapporto_lineare.html</code> e scrive <a href="Analisi%20lineare%20in%20hover.html">Analisi lineare in hover.html</a>. I risultati che servono alle decisioni:</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Grandezza</th><th>Valore</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="2">Margini, con motore e campionamento</td></tr>
+        <tr><td>Anello d'assetto (ω<sub>n</sub> = 9, ζ = 1)</td><td class="num">53.8° · 26.3 dB</td></tr>
+        <tr><td>ω<sub>n</sub> massima dell'assetto con margine ≥ 50°</td><td class="num">10.8 rad/s</td></tr>
+        <tr><td>Asse x all'attuatore, BS/GEO con derivata filtrata</td><td class="num">43.3° · 26.0 dB</td></tr>
+        <tr><td>Asse x all'attuatore, DFL</td><td class="num">47.6° · 24.8 dB</td></tr>
+        <tr><td>Anello di posizione aperto su θ<sub>d</sub>: derivate nulle / filtrate</td><td class="num">37.3° / 69.6°</td></tr>
+        <tr><td>Quota, BS/GEO</td><td class="num">68.2° · 38.0 dB</td></tr>
+        <tr><td>Quota, DFL con poli in più a −9 doppio / −25 doppio</td><td class="num">44.1° · 13.3 dB / 53.1° · 16.5 dB</td></tr>
+        <tr><td>Imbardata</td><td class="num">63.2° · 31.8 dB</td></tr>
+        <tr class="grp"><td colspan="2">Risposte previste</td></tr>
+        <tr><td>Gradino di 10 cm su x (T1-N1): entro 5 mm · sovraelongazione · inclinazione massima</td><td class="num">2.37 s · 1.6 mm · 0.79°</td></tr>
+        <tr><td>Scostamento dalla risposta con derivate esatte: derivata filtrata / nulle</td><td class="num">0.38 mm / 19.4 mm</td></tr>
+        <tr><td>Gradino di 0.5 m su z, entro il 5%: BS/GEO · DFL −9 · DFL −25</td><td class="num">1.64 · 1.88 · 1.72 s</td></tr>
+        <tr><td>Distanza del DFL da BS/GEO in quota: −9 / −25 doppio</td><td class="num">109 / 43 mm</td></tr>
+        <tr class="grp"><td colspan="2">Scenari</td></tr>
+        <tr><td>C: margine all'attuatore per τ<sub>m</sub> = 20, 40, 60, 80 ms</td><td class="num">43° · 28° · 18° · 11°</td></tr>
+        <tr><td>C: τ<sub>m</sub> oltre cui l'anello lineare è instabile (continuo / discreto)</td><td class="num">120 / 126 ms</td></tr>
+        <tr><td>B con massa non nota, B1 (×1.5): errore a regime in quota, BS/GEO / DFL</td><td class="num">0.70 m / 1.54 m</td></tr>
+        <tr><td>Campionamento: modello discreto esatto rispetto al mezzo passo di ritardo</td><td class="num">+2.3° · 45 dB invece di 26</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap">Se il controllore conosce massa e inerzia, poli e margini non dipendono dal carico: nello scenario B cambiano solo le saturazioni.</p>
+
+  <h3>3.2 Le classi dei controllori</h3>
+  <p>Le classi implementano le leggi non lineari complete: il modello lineare serve solo a tradurre i poli in guadagni e a prevedere il comportamento in hover. Alcune scelte d'implementazione cambiano però la legge linearizzata, e per questo sono state fatte uguali a quelle dell'analisi:</p>
+  <ul>
+    <li>τ<sub>f</sub> del filtro sulle derivate, nel BS e nel GEO;</li>
+    <li>nel DFL, l'integrazione del compensatore e il suo valore iniziale ζ(0);</li>
+    <li>i poli in più del DFL in quota;</li>
+    <li>i guadagni del GEO, che vanno moltiplicati per m e J.</li>
+  </ul>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>File</th><th>Contenuto</th></tr></thead>
+      <tbody>
+        <tr><td class="file"><code>comune/<wbr>rotazioni.py</code> <span class="stato">nuovo</span></td><td><code>angolo_in_pi</code>, <code>hat</code>, <code>vee</code>, <code>matrice_R</code> (ZYX), <code>angoli_da_R</code> (la stessa estrazione del <code>Drone</code>) e <code>matrice_W</code>. Le usano tutti e tre i controllori; il BS non ne ha più una copia sua.</td></tr>
+        <tr><td class="file"><code>DFL_control/<wbr>controllore_dfl.py</code> <span class="stato">nuovo</span></td><td>Il DFL «completo» delle slide 03, con la cinematica esatta degli angoli di Eulero e i termini giroscopici. Il compensatore ζ = (T, dT/dt) è integrato con Eulero in avanti e parte da ζ(0) = (mg, 0). Il comando è u = A⁻¹(v − l), dove u contiene la derivata seconda della spinta e ω̇; poi τ = J ω̇ + ω × Jω. Usa il riferimento fino allo snap. Guadagni: c<sub>3</sub>…c<sub>0</sub> per x, y, z e (c<sub>1</sub>, c<sub>0</sub>) per ψ.</td></tr>
+        <tr><td class="file"><code>Geometric_control/<wbr>controllore_geometrico.py</code> <span class="stato">nuovo</span></td><td>Lee, Leok e McClamroch, riscritto con z verso l'alto. Guadagni diagonali fisici K<sub>x</sub>, K<sub>v</sub>, K<sub>R</sub>, K<sub>Ω</sub>. Ω<sub>d</sub> e dΩ<sub>d</sub>/dt vengono dalla derivata filtrata di R<sub>d</sub>, come nel BS. Per il log salva e<sub>R</sub>, e<sub>Ω</sub>, Ψ, R<sub>d</sub> e i suoi angoli.</td></tr>
+        <tr><td class="file"><code>Backstepping_control/<wbr>controllore_backstepping.py</code> <span class="stato">modificato</span></td><td>Solo la firma, <code>calcola(stato, rif)</code> invece di <code>calcola(p, v, eta, omega, rif)</code>, e gli import da <code>comune/rotazioni.py</code>. La logica è la stessa.</td></tr>
+        <tr><td class="file"><code>Backstepping_control/<wbr>main_hover.py</code> <span class="stato">modificato</span></td><td>Costruisce il dict <code>stato</code> e chiama la nuova firma. Nient'altro.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <p><strong>Interfaccia comune</strong> (planning §7). Il costruttore riceve m, J, guadagni, <code>dt</code> e limiti; <code>reset()</code> azzera lo stato interno. <code>calcola(stato, rif)</code> riceve <code>stato = {p, v, R, eta, omega}</code>, da cui ognuno prende ciò che gli serve, e il dict della traiettoria come <code>rif</code>; restituisce (T, τ). Le grandezze interne per il log sono attributi: <code>e_p</code>, <code>eta_d</code> e quelle proprie di ciascun metodo.</p>
+  </div>
+
+  <h3>3.3 Verifica offline delle classi (FASE 4.1)</h3>
+  <p>Le vere classi comandano un impianto non lineare in Python con la stessa catena del <code>Drone</code>: mixer a X, saturazione di Ω, motore del primo ordine aggiornato prima della forza e corpo rigido integrato con RK4. Altre caratteristiche della prova:</p>
+  <ul>
+    <li>passo di 5 ms, motori che partono da Ω<sub>h</sub>;</li>
+    <li>massa e inerzia di prova (1 kg, J = diag(0.0082, 0.0085, 0.0149) kg·m²), che per il confronto con la previsione lineare non contano;</li>
+    <li>guadagni dai poli nominali, τ<sub>f</sub> = 20 ms per BS e GEO, poli in più del DFL a −9 doppio, <code>angolo_max</code> del BS a 60°.</li>
+  </ul>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Prova</th><th>BS</th><th>DFL</th><th>GEO</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="4">Scarto massimo dalla previsione lineare</td></tr>
+        <tr><td>Gradino di 10 cm su x</td><td class="num">3 µm</td><td class="num">&lt; 1 µm</td><td class="num">&lt; 1 µm</td></tr>
+        <tr><td>Gradino di 10 cm su y</td><td class="num">3 µm</td><td class="num">&lt; 1 µm</td><td class="num">&lt; 1 µm</td></tr>
+        <tr><td>Gradino di 0.5 m su z</td><td class="num">0.57 mm</td><td class="num">0.04 mm</td><td class="num">0.57 mm</td></tr>
+        <tr><td>Gradino di 10° sullo yaw</td><td class="num">0.004°</td><td class="num">0.004°</td><td class="num">0.013°</td></tr>
+        <tr class="grp"><td colspan="4">T1-N2: partenza da (1, 1, 0.5) m e 90° di yaw</td></tr>
+        <tr><td>Errore a 10 s</td><td class="num">0.01 mm</td><td class="num">0.01 mm</td><td class="num">0.01 mm</td></tr>
+        <tr><td>Inclinazione massima</td><td class="num">27.3°</td><td class="num">20.9°</td><td class="num">7.3°</td></tr>
+        <tr><td>Passi con motori in saturazione</td><td class="num">107</td><td class="num">78</td><td class="num">43</td></tr>
+        <tr class="grp"><td colspan="4">Inseguimento: waypoint <code>min_snap</code> a 1.5 m/s</td></tr>
+        <tr><td>Errore di posizione RMS / massimo</td><td class="num">9.3 / 17.5 mm</td><td class="num">6.4 / 14.2 mm</td><td class="num">9.9 / 19.0 mm</td></tr>
+        <tr><td>Errore di yaw massimo</td><td class="num">0.80°</td><td class="num">0.10°</td><td class="num">0.43°</td></tr>
+        <tr class="grp"><td colspan="4">T1-N3: rilasciato inclinato su rollio (R) o beccheggio (P); tra parentesi la quota minima</td></tr>
+        <tr><td>30°, 60°, 90° (beccheggio a 89.9°)</td><td><span class="ok">✓ tutti</span></td><td><span class="ok">✓ tutti</span></td><td><span class="ok">✓ tutti</span></td></tr>
+        <tr><td>120°, rollio</td><td><span class="ok">✓ (−0.34 m)</span></td><td><span class="ok">✓ (−0.44 m)</span></td><td><span class="ok">✓ (−1.12 m)</span></td></tr>
+        <tr><td>120°, beccheggio</td><td><span class="no">✕ cade</span></td><td><span class="no">✕ cade</span></td><td><span class="ok">✓ (−1.13 m)</span></td></tr>
+        <tr><td>179°, rollio</td><td><span class="ok">✓ (−0.91 m)</span></td><td><span class="no">✕ cade</span></td><td><span class="ok">✓ (−15.8 m)</span></td></tr>
+        <tr><td>179°, beccheggio</td><td><span class="no">✕ cade</span></td><td><span class="no">✕ cade</span></td><td><span class="ok">✓ (−15.8 m)</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap">«Cade» vuol dire che a 8 s il drone non è entro 5 cm dal riferimento: in questi casi è precipitato di decine o centinaia di metri. Nel gradino su x le previsioni sono due, una per BS/GEO e una per il DFL, e ogni classe è confrontata con la propria.</p>
+  <p>Due problemi trovati con la verifica, e già corretti nel codice:</p>
+  <ul>
+    <li><strong>GEO con la costruzione di R<sub>d</sub> delle slide.</strong> In inseguimento dava 5° di errore di yaw, solo per come è definito R<sub>d</sub>: ora sono 0.43° (§5, punto 2).</li>
+    <li><strong>GEO senza spinta minima.</strong> Non recuperava da 120°: con la spinta negativa il mixer spegne i motori e il drone perde anche le coppie (§5, punto 3).</li>
+  </ul>
+  <div class="note warn">
+    <p><strong>Lo script non è nel repository.</strong> È in <code>C:\Users\tellg\AppData\Local\Temp\claude\8b24f0e7d00239ba\143d82b8-7cef-4ac2-93c7-d6a0c498682d\scratchpad\verifica_controllori.py</code>. È una cartella temporanea: per tenerlo va spostato in <code>analisi/</code> (§7, passo 5).</p>
+  </div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="wide" id="ipotesi">
+  <div class="col"><div><span class="sec-num">4</span><h2>Le ipotesi: che cosa si sa già</h2></div>
+  <p>Non sono verdetti: i verdetti richiedono le campagne in CoppeliaSim. Sono le previsioni dell'analisi e le indicazioni della verifica offline, scritte prima delle prove come chiede il planning.</p></div>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Ipotesi</th><th>Che cosa dice il lavoro fatto</th><th>Stato</th></tr></thead>
+      <tbody>
+        <tr><td class="name">H1 · bassa difficoltà</td><td>In hover, su x, y e ψ, le tre leggi linearizzate sono la stessa legge (formula di Ackermann), quindi H1 vale per costruzione. Offline i gradini di 10 cm coincidono con la previsione entro 3 µm. In quota invece no: il DFL ha due poli in più. T1-N1 verifica quindi l'implementazione, non confronta i metodi.</td><td><span class="stato parte">◐ attesa per costruzione</span></td></tr>
+        <tr><td class="name">H2 · disturbi</td><td>Ancora nessuna indicazione.</td><td><span class="stato dafare">○ colonna A</span></td></tr>
+        <tr><td class="name">H3 · inclinazione iniziale</td><td>Offline BS e DFL recuperano dal rollio fino a 120° e falliscono sul beccheggio a 120°, come previsto. Due differenze: il DFL fallisce anche sul rollio a 179°, mentre il BS lo recupera; il GEO recupera sempre, ma da 179° perde 15.8 m di quota, perché vicino a 180° e<sub>R</sub> ≈ sin ϑ è piccolo e la spinta proiettata resta al minimo.</td><td><span class="stato parte">◐ confermata per il BS, in parte per il DFL</span></td></tr>
+        <tr><td class="name">H4 · limite di spinta</td><td>Ancora nessuna indicazione. Nel codice il compensatore del DFL continua a integrare anche quando i motori saturano, e l'unica protezione è il limite inferiore T<sub>min</sub>: è proprio il meccanismo che l'ipotesi descrive.</td><td><span class="stato dafare">○ colonna B</span></td></tr>
+        <tr><td class="name">H5 · motori lenti</td><td>Su x, y e ψ la legge lineare è la stessa, quindi i margini calano allo stesso modo per tutti: all'attuatore da 43° a 11° (DFL da 47.6° a 14.4°) tra 20 e 80 ms. In quota il DFL parte da un margine più basso, 44° contro 68° con i poli a −9 doppio: se cede prima, probabilmente sarà in quota.</td><td><span class="stato parte">◐ previsione scritta</span></td></tr>
+        <tr><td class="name">H6 · riferimento poco regolare</td><td>Con la derivata filtrata il GEO non usa né jerk né snap: come il BS, prende solo l'accelerazione del riferimento. Lo snap serve solo al DFL. Sul percorso <code>min_snap</code> a 1.5 m/s il DFL ha l'errore più basso (6.4 mm RMS contro 9.3 e 9.9), perché usa le derivate esatte.</td><td><span class="stato parte">◐ da riscrivere: GEO sta con il BS</span></td></tr>
+        <tr><td class="name">H7 · costo di calcolo</td><td>Non ancora misurato. Il DFL risolve un sistema 4×4 a ogni passo, il GEO fa qualche prodotto di matrici 3×3. Il cronometro va messo nel ciclo della FASE 2.</td><td><span class="stato dafare">○ tutte le prove</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="col" id="scelte">
+  <div><span class="sec-num">5</span><h2>Scelte fatte nel codice, da confermare</h2></div>
+  <p>Sono scelte che toccano il confronto o che vanno dichiarate nella relazione. Ognuna si può cambiare con un parametro o con poche righe.</p>
+  <ol class="passi">
+    <li><div><b>DFL completo invece di quello approssimato.</b><span>Le slide 03 hanno due versioni, e quella approssimata a piccoli angoli si rompe sul cerchio veloce delle stesse slide. Con quella completa la matrice A è singolare non solo a T = 0 ma anche a θ = ±90°, dove W(η) non esiste.</span></div></li>
+    <li><div><b>Nel GEO, R<sub>d</sub> costruita in modo coerente con lo yaw ZYX</b> (<code>direzione_yaw='zyx'</code>, la costruzione di Mellinger e Kumar).<span>Le slide proiettano la direzione di yaw sul piano normale a b<sub>3d</sub>, e con il drone inclinato lo yaw ZYX di R<sub>d</sub> non è più ψ<sub>d</sub>. In inseguimento questo dava 5° di errore, dovuti solo alla definizione; ora sono 0.43°. La costruzione delle slide resta disponibile con <code>'lee'</code>.</span></div></li>
+    <li><div><b>Spinta minima 0.1 mg in DFL e GEO</b>, la stessa del limite su F<sub>z</sub> del BS.<span>Nel DFL protegge dalla singolarità a T = 0 (planning §5.7). Nel GEO, con il drone oltre 90° da b<sub>3d</sub>, f = F·Re<sub>3</sub> diventa negativa: il mixer del <code>Drone</code> porta allora i motori a zero e toglie anche le coppie. Senza questo limite il GEO non recuperava da 120°. Va dichiarata.</span></div></li>
+    <li><div><b>Solo la diagonale di J</b> in tutti e tre, come faceva già il BS.<span>Va bene se nella stampa del <code>Drone</code> i termini fuori diagonale restano sotto l'1% circa.</span></div></li>
+    <li><div><b>GEO con Ω<sub>d</sub> e dΩ<sub>d</sub>/dt dalla derivata filtrata di R<sub>d</sub></b> (τ<sub>f</sub> = 20 ms), come il BS (STEPS 0.6).<span>Due conseguenze. Il GEO ha uno stato interno, mentre il planning §1.2 dice il contrario. E H6 cambia, perché il GEO non usa più jerk e snap.</span></div></li>
+    <li><div><b>Nel DFL, compensatore integrato con Eulero in avanti e ζ(0) = (mg, 0).</b><span>È la discretizzazione usata nell'analisi lineare, quindi la previsione vale per il codice così com'è.</span></div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="wide" id="decisioni">
+  <div class="col"><div><span class="sec-num">6</span><h2>Decisioni aperte</h2>
+  <p>Dalle tabelle «Decisioni aperte» di <code>STEPS_progetto.md</code> e dal §10 di <code>planning.md</code>, con quello che ne dice l'analisi.</p></div></div>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Decisione</th><th>Che cosa dice l'analisi</th><th>Proposta</th></tr></thead>
+      <tbody>
+        <tr><td class="name">Derivate dell'assetto desiderato</td><td>Filtrate a 20 ms, spostano il gradino di 0.38 mm. Nulle, lo spostano di 19.4 mm, e aprendo l'anello su θ<sub>d</sub> il margine scende a 37°.</td><td>Derivata filtrata, τ<sub>f</sub> = 20 ms, per BS e GEO. Oggi <code>main_hover.py</code> non passa ancora <code>tau_filtro</code>.</td></tr>
+        <tr><td class="name">Poli in più del DFL in quota</td><td>Con −9 doppio: 44° e 13.3 dB, e 109 mm di distanza da BS/GEO. Con −25 doppio: 53° e 16.5 dB, e 43 mm, ma con un picco di comando più alto.</td><td>−25 doppio, controllando in T1-N2 che la spinta non saturi.</td></tr>
+        <tr><td class="name">Specifica di margine</td><td>Sull'anello d'assetto i 50° sono rispettati (53.8°). All'attuatore no: 43.3° per BS/GEO, 47.6° per il DFL.</td><td>Riformularla: almeno 50° sull'anello d'assetto e almeno 40° all'attuatore.</td></tr>
+        <tr><td class="name">Livelli dello scenario C</td><td>A 80 ms il margine all'attuatore è 11°. L'anello lineare diventa instabile verso 120 ms (126 ms nel modello discreto).</td><td>Aggiungere un livello a 100–120 ms, altrimenti la soglia di rottura non si trova.</td></tr>
+        <tr><td class="name">Limiti del BS</td><td>In <code>main_hover.py</code> ci sono ancora <code>angolo_max</code> = 25° e il 90% di <code>T_max</code>. In T1-N2 il BS arriva a 27°, e T2 e T3 chiedono fino a 60°.</td><td>Limite d'inclinazione non attivo (60°), solo la saturazione fisica dei motori e la stessa spinta minima per tutti. La spinta minima è già nel codice.</td></tr>
+        <tr><td class="name">Soglia di T1-N1</td><td>Le previsioni di BS/GEO e DFL differiscono di 0.43 mm. Il modello continuo e quello discreto differiscono di 0.21 mm.</td><td>2 mm va bene.</td></tr>
+        <tr><td class="name">Massa non nota (planning §9.4)</td><td>Già in B1 l'errore a regime in quota è di 0.70 m per BS/GEO e 1.54 m per il DFL, e cresce linearmente con il carico.</td><td>Solo su B1, dichiarando che misura la mancanza dell'azione integrale, non il metodo.</td></tr>
+        <tr><td class="name">Ancora aperte</td><td colspan="2" class="nolab">Su queste l'analisi non dice niente: livelli dello scenario A e coefficiente c<sub>a</sub>, geometria dei waypoint di T3, soglia ε, PD come riferimento. La difficoltà di riferimento per T2 e T3 si sceglie dopo la FASE 5.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="col" id="prossimi">
+  <div><span class="sec-num">7</span><h2>Prossimi passi</h2></div>
+  <ol class="passi">
+    <li><div><b>Commit dello stato attuale.</b><span>Nulla di quanto elencato al §8 è committato. Dopo il commit conviene rilanciare <code>python analisi/rapporto_lineare.py</code>, così nei metadati del rapporto non risulta più «commit sporco».</span></div></li>
+    <li><div><b>FASE 1: <code>comune/taratura.py</code>.</b><span>Spostare <code>polinomio</code>, <code>guadagni_bs</code>, <code>coefficienti_dfl</code> e <code>scala_poli</code> da <code>analisi/lineare.py</code> e aggiungere <code>guadagni_geo(poli, m, J)</code>. Test: <code>guadagni_bs(POLI)</code> deve dare i <code>GUADAGNI</code> di <code>main_hover.py</code>.</span></div></li>
+    <li><div><b>Modifiche al <code>Drone</code>.</b><span>Motori inizializzati a Ω<sub>h</sub> (oggi <code>self.Omega = np.zeros(4)</code>), flag di saturazione, spinta e coppie realizzate, τ<sub>m</sub> modificabile.</span></div></li>
+    <li><div><b><code>main_hover.py</code>.</b><span><code>tau_filtro=0.02</code>, guadagni da <code>taratura.py</code> e i limiti decisi al §6.</span></div></li>
+    <li><div><b>Script di verifica nel repository.</b><span>Spostarlo in <code>analisi/</code> come FASE 4.1, con l'impianto non lineare.</span></div></li>
+    <li><div><b>Main di DFL e GEO, poi T1-N1 in CoppeliaSim.</b><span>È la FASE 4.2: le tre risposte devono coincidere con la previsione entro 2 mm.</span></div></li>
+    <li><div><b>FASE 2.</b><span><code>scenari.py</code>, <code>esecuzione.py</code>, <code>registro.py</code>, <code>aria.py</code>, l'otto in <code>traiettoria.py</code> e i 12 main in <code>prove/</code>.</span></div></li>
+  </ol>
+
+  <h3>Documenti da aggiornare</h3>
+  <p>Non li ho modificati: è l'elenco di ciò che il lavoro fatto ha reso vecchio.</p>
+  <ul>
+    <li><code>planning.md</code> §1.1: la colonna «Stato» dà ancora DFL e GEO «da scrivere».</li>
+    <li><code>planning.md</code> §1.2: con la derivata filtrata il GEO ha uno stato interno.</li>
+    <li><code>planning.md</code> §1.3: il testo di H6 (§4 di questa pagina).</li>
+    <li><code>planning.md</code> §7: la nota «Oggi il BS ha <code>calcola(p, v, eta, omega, rif)</code>» non vale più.</li>
+    <li><code>planning.md</code> §8: la numerazione delle fasi è diversa da quella di STEPS.</li>
+    <li><code>planning.md</code> §9.8, che propone la spinta proiettata nel BS per perdere meno quota in T1-N3. Offline il GEO, che la proietta, perde più quota del BS sul rollio: 1.12 m contro 0.34 m a 120°. Il confronto mescola altre differenze tra i due, ma prima di proporla va riconsiderata.</li>
+    <li><code>STEPS_progetto.md</code> 0.4: la specifica dei 50°. In 0.6, 0.7 e 0.8: le decisioni del §6, quando le prendi.</li>
+  </ul>
+</section>
+
+<!-- ============================================================ 8 -->
+<section class="col" id="repo">
+  <div><span class="sec-num">8</span><h2>Stato del repository</h2></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>File</th><th>Stato</th></tr></thead>
+      <tbody>
+        <tr><td><code>analisi/lineare.py</code></td><td><span class="stato">nuovo</span></td></tr>
+        <tr><td><code>analisi/rapporto_lineare.py</code></td><td><span class="stato">nuovo</span></td></tr>
+        <tr><td><code>analisi/modello_rapporto_lineare.html</code></td><td><span class="stato">nuovo</span></td></tr>
+        <tr><td><code>doc/Analisi lineare in hover.html</code></td><td><span class="stato">nuovo, generato</span></td></tr>
+        <tr><td><code>doc/Avanzamento del progetto.html</code> (questa pagina)</td><td><span class="stato">nuovo</span></td></tr>
+        <tr><td><code>comune/rotazioni.py</code></td><td><span class="stato">nuovo</span></td></tr>
+        <tr><td><code>DFL_control/controllore_dfl.py</code></td><td><span class="stato">scritto (era vuoto)</span></td></tr>
+        <tr><td><code>Geometric_control/controllore_geometrico.py</code></td><td><span class="stato">scritto (era vuoto)</span></td></tr>
+        <tr><td><code>Backstepping_control/controllore_backstepping.py</code></td><td><span class="stato">modificato: firma e import</span></td></tr>
+        <tr><td><code>Backstepping_control/main_hover.py</code></td><td><span class="stato">modificato: chiamata</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap">Non sono stati toccati <code>comune/drone.py</code>, <code>comune/traiettoria.py</code>, <code>planning.md</code>, <code>STEPS_progetto.md</code> e la proposta in LaTeX. Nessun commit.</p>
+</section>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analisi lineare in hover</title>
+<!-- Modello del rapporto: analisi/rapporto_lineare.py sostituisce il segnaposto dei dati e scrive doc/Analisi lineare in hover.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400&display=swap">
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['$$', '$$']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<style>
+/* Stessi colori e caratteri di "Taratura del backstepping.html" */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f6;
+  --surface: #fcfcfd;
+  --fg: #15181d;
+  --fg2: #4a515b;
+  --muted: #7c848f;
+  --grid: #e1e4e8;
+  --axis: #b9bfc7;
+  --line: rgba(21, 24, 29, 0.11);
+  --accent: #1f5bb5;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --k1: #86b6ef;
+  --k2: #2a78d6;
+  --k3: #104281;
+  --crit: #d03b3b;
+  --good-ink: #006300;
+  --bad-ink: #a82828;
+  --wash: rgba(42, 120, 214, 0.07);
+  --invalid: rgba(208, 59, 59, 0.10);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+    --grid: #252a30; --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --k1: #1c5cab; --k2: #3987e5; --k3: #9ec5f4;
+    --crit: #e05a5a; --good-ink: #35b935; --bad-ink: #f07a7a;
+    --wash: rgba(57, 135, 229, 0.12); --invalid: rgba(224, 90, 90, 0.14);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+  --grid: #252a30; --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --k1: #1c5cab; --k2: #3987e5; --k3: #9ec5f4;
+  --crit: #e05a5a; --good-ink: #35b935; --bad-ink: #f07a7a;
+  --wash: rgba(57, 135, 229, 0.12); --invalid: rgba(224, 90, 90, 0.14);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.62 var(--f-body);
+  font-optical-sizing: auto;
+}
+[hidden] { display: none !important; }
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 44px;
+}
+.col { max-width: 720px; width: 100%; margin: 0 auto; display: grid; gap: 14px; min-width: 0; }
+.col > * { margin: 0; }
+.wide { width: 100%; display: grid; gap: 14px; min-width: 0; }
+section { display: grid; gap: 22px; min-width: 0; }
+
+h1, h2, h3 { font-family: var(--f-display); font-stretch: 88%; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 760; letter-spacing: -0.01em; }
+h2 { font-size: 27px; font-weight: 720; }
+h3 { font-size: 19px; font-weight: 680; margin-top: 8px; }
+.eyebrow { font: 600 12.5px/1.2 var(--f-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg2); }
+.sec-num { font: 500 14px var(--f-mono); color: var(--accent); display: block; margin-bottom: 6px; }
+.lede { font-size: 19.5px; line-height: 1.55; }
+.meta { font: 500 13px/1.5 var(--f-mono); color: var(--fg2); }
+p { text-wrap: pretty; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--wash); padding: 0.05em 0.35em; border-radius: 3px; }
+strong { font-weight: 600; }
+a { color: var(--accent); }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
+li::marker { color: var(--accent); }
+
+.note {
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  display: grid; gap: 6px;
+}
+.note > * { margin: 0; }
+.note.warn { border-left-color: var(--crit); }
+
+.math-block { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+mjx-container[display="true"] { margin: 0.5em 0 !important; }
+
+dl.findings { margin: 0; display: grid; gap: 0; }
+dl.findings div { display: grid; grid-template-columns: 190px 1fr; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+dl.findings dt { font: 650 15px/1.4 var(--f-display); font-stretch: 92%; }
+dl.findings dd { margin: 0; }
+@media (max-width: 600px) { dl.findings div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Figure */
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 26px; }
+figure.fig { margin: 0; display: grid; gap: 8px; min-width: 0; align-content: start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px clamp(12px, 2.4vw, 20px) 14px; }
+figure.fig figcaption { display: grid; gap: 3px; }
+figure.fig figcaption b { font: 650 15.5px var(--f-display); font-stretch: 92%; }
+figure.fig figcaption span { font-size: 14.5px; color: var(--fg2); line-height: 1.45; }
+.plot { position: relative; width: 100%; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font: 500 13px/1.4 var(--f-display); color: var(--fg2); }
+.legend span { white-space: nowrap; }
+@media (max-width: 520px) { .legend span { white-space: normal; } }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+.legend i.s1, .tip .key.s1 { border-color: var(--s1); }
+.legend i.s2, .tip .key.s2 { border-color: var(--s2); }
+.legend i.s3, .tip .key.s3 { border-color: var(--s3); }
+.legend i.s4, .tip .key.s4 { border-color: var(--s4); }
+.legend i.k1, .tip .key.k1 { border-color: var(--k1); }
+.legend i.k2, .tip .key.k2 { border-color: var(--k2); }
+.legend i.k3, .tip .key.k3 { border-color: var(--k3); }
+
+svg.chart { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+svg.chart .grid { stroke: var(--grid); stroke-width: 1; }
+svg.chart .frame { fill: none; stroke: var(--axis); stroke-width: 1; }
+svg.chart .axisline { stroke: var(--axis); stroke-width: 1.2; }
+svg.chart .tick { fill: var(--muted); font: 11.5px var(--f-mono); font-variant-numeric: tabular-nums; }
+svg.chart .axlabel { fill: var(--fg2); font: 500 12.5px var(--f-display); }
+svg.chart .curve { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg.chart .curve.s1 { stroke: var(--s1); }
+svg.chart .curve.s2 { stroke: var(--s2); }
+svg.chart .curve.s3 { stroke: var(--s3); }
+svg.chart .curve.s4 { stroke: var(--s4); }
+svg.chart .curve.k1 { stroke: var(--k1); }
+svg.chart .curve.k2 { stroke: var(--k2); }
+svg.chart .curve.k3 { stroke: var(--k3); }
+svg.chart .mk, svg.chart .hdot { stroke: var(--surface); stroke-width: 2; }
+svg.chart .s1.mk, svg.chart .s1.hdot { fill: var(--s1); }
+svg.chart .s2.mk, svg.chart .s2.hdot { fill: var(--s2); }
+svg.chart .s3.mk, svg.chart .s3.hdot { fill: var(--s3); }
+svg.chart .s4.mk, svg.chart .s4.hdot { fill: var(--s4); }
+svg.chart .k1.hdot { fill: var(--k1); }
+svg.chart .k2.hdot { fill: var(--k2); }
+svg.chart .k3.hdot { fill: var(--k3); }
+svg.chart .ink.mk, svg.chart .ink.hdot { fill: var(--fg); }
+svg.chart .crit { fill: none; stroke: var(--crit); stroke-width: 2; }
+svg.chart .note { fill: var(--fg); font: 500 12px var(--f-mono); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+svg.chart .note.soft { fill: var(--fg2); font-family: var(--f-display); font-size: 12px; }
+svg.chart .thr { stroke: var(--fg2); stroke-width: 1; opacity: 0.7; }
+svg.chart .invalid { fill: var(--invalid); }
+svg.chart .hit { fill: transparent; pointer-events: all; cursor: crosshair; outline: none; }
+svg.chart .hit:focus-visible { stroke: var(--accent); stroke-width: 2; }
+svg.chart .cross { stroke: var(--fg2); stroke-width: 1; }
+.tip {
+  position: absolute; z-index: 2; pointer-events: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 7px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  padding: 7px 10px; display: grid; gap: 3px; min-width: 130px; max-width: 320px;
+  font: 12.5px/1.35 var(--f-display); color: var(--fg2);
+}
+.tip .hd { font: 500 12px var(--f-mono); color: var(--fg2); }
+.tip .row { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.tip .row b { font: 500 13px var(--f-mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+.tip .key { width: 14px; border-top: 2px solid; flex: none; }
+
+/* Tabelle */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 13px/1.35 var(--f-display); color: var(--fg2); letter-spacing: 0.02em; background: var(--bg); }
+td.num { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.wrapnum { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+td.sub { color: var(--fg2); font-size: 14px; }
+tr:last-child td { border-bottom: 0; }
+tr.grp td { background: var(--wash); font: 600 13px var(--f-display); color: var(--fg2); }
+.pill { display: inline-block; font: 500 12.5px var(--f-mono); padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { color: var(--good-ink); background: color-mix(in srgb, var(--good-ink) 11%, transparent); }
+.pill.bad { color: var(--bad-ink); background: color-mix(in srgb, var(--bad-ink) 11%, transparent); }
+.pill.ok::before { content: "✓ "; }
+.pill.bad::before { content: "✕ "; }
+details.tv > summary, details.more > summary { cursor: pointer; font: 500 13px var(--f-display); color: var(--accent); list-style-position: inside; }
+details.tv[open] > summary, details.more[open] > summary { margin-bottom: 8px; }
+details.tv table { font-size: 13px; }
+details.tv td { padding: 4px 10px; }
+.cap { font-size: 14.5px; color: var(--fg2); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="col">
+  <div class="eyebrow">Elective in Robotics · confronto BS / DFL / GEO · FASE 0</div>
+  <h1>Analisi lineare in hover</h1>
+  <p class="lede">Il modello linearizzato del drone, le tre leggi di controllo linearizzate e quello che ne segue per la taratura: poli, margini di stabilità e risposte previste. Tutto senza CoppeliaSim, con i parametri della simulazione.</p>
+  <p class="meta" id="meta"></p>
+  <div class="note">
+    <p><strong>Da dove vengono i numeri.</strong> Li calcola <code>analisi/lineare.py</code>; <code>analisi/rapporto_lineare.py</code> li inserisce in questa pagina. Se cambiano i poli o i parametri si rilancia il secondo script: tabelle e grafici si aggiornano, il commento nel testo resta quello scritto per la taratura nominale.</p>
+    <p id="esito-controlli"></p>
+  </div>
+</header>
+
+<!-- ============================================================ 1 -->
+<section class="col" id="sintesi">
+  <div><span class="sec-num">1</span><h2>In sintesi</h2></div>
+  <dl class="findings">
+    <div><dt>La massa non entra</dt><dd>Con gli ingressi scritti come accelerazioni, il modello contiene solo \(g\), \(\tau_m\) e \(T_c\). Se il controllore conosce massa e inerzia, poli e margini sono gli stessi a qualsiasi carico: nello scenario B cambiano solo le saturazioni.</dd></div>
+    <div><dt>Assetto</dt><dd>Con \(\omega_n = 9\) e \(\zeta = 1\): margine di fase <span data-v="margini.0.cont.pm"></span>° e di guadagno <span data-v="margini.0.cont.gm"></span> dB. La specifica dei 50° regge fino a \(\omega_n =\) <span data-v="pm_wn.wn_max" data-d="1"></span> rad/s.</dd></div>
+    <div><dt>Asse x all'attuatore</dt><dd>BS e GEO con derivata filtrata hanno <span data-v="margini.1.cont.pm"></span>°, il DFL <span data-v="margini.3.cont.pm"></span>°: entrambi sotto i 50°. La specifica, così com'è scritta, non è rispettata (§12).</dd></div>
+    <div><dt>Derivate di \(\theta_d\)</dt><dd>La derivata filtrata (\(\tau_f = 20\) ms) sposta \(x(t)\) di <span data-v="derivate.filtrate.dist_mm" data-d="2"></span> mm dalla risposta con derivate esatte. Le derivate nulle, quelle di <code>main_hover.py</code> oggi, la spostano di <span data-v="derivate.nulle.dist_mm"></span> mm su 100.</dd></div>
+    <div><dt>Previsione per T1-N1</dt><dd>Gradino di 10 cm: entro 5 mm in <span data-v="gradino_x.metriche.0.t_5mm" data-d="2"></span> s, sovraelongazione <span data-v="gradino_x.metriche.0.sovra_mm"></span> mm, inclinazione massima <span data-v="gradino_x.metriche.0.incl_max" data-d="2"></span>°. BS/GEO e DFL differiscono al massimo di <span data-v="gradino_x.dfl_vs_bs_mm" data-d="2"></span> mm, quindi la soglia di 2 mm della FASE 4.2 è adeguata.</dd></div>
+    <div><dt>Campionamento</dt><dd>Nel ciclo il motore si aggiorna prima di applicare la forza, e questo compensa il mezzo passo di ritardo. Il modello discreto esatto dà margini di fase più alti di circa <span data-v="derivati.dpm_x"></span>° e un margine di guadagno di <span data-v="margini.1.disc.gm" data-d="0"></span> dB invece di <span data-v="margini.1.cont.gm" data-d="0"></span>. Sulla risposta al gradino la differenza è di <span data-v="gradino_x.cont_vs_disc_mm" data-d="2"></span> mm.</dd></div>
+    <div><dt>Il motore sposta l'assetto</dt><dd>Il polo doppio d'assetto in −9 diventa <span data-p="poli.3.con" data-d="1"></span>. I poli di posizione restano quasi dove sono stati messi.</dd></div>
+    <div><dt>DFL in quota</dt><dd>Con la coppia in più a −9 doppio: margine di fase <span data-v="margini.5.cont.pm"></span>° e di guadagno <span data-v="margini.5.cont.gm"></span> dB, contro <span data-v="margini.4.cont.pm"></span>° e <span data-v="margini.4.cont.gm"></span> dB di BS/GEO. A −25 doppio diventano <span data-v="margini.7.cont.pm"></span>° e <span data-v="margini.7.cont.gm"></span> dB, e la risposta si avvicina a quella di BS/GEO.</dd></div>
+    <div><dt>Scenario C</dt><dd>Il margine all'attuatore scende da <span data-v="tau_m.tabella.0.act.pm" data-d="0"></span>° a <span data-v="tau_m.tabella.1.act.pm" data-d="0"></span>°, <span data-v="tau_m.tabella.2.act.pm" data-d="0"></span>° e <span data-v="tau_m.tabella.3.act.pm" data-d="0"></span>°. Il sistema diventa instabile oltre \(\tau_m \approx\) <span data-v="tau_m.instab_cont" data-d="0"></span> ms (<span data-v="tau_m.instab_disc" data-d="0"></span> ms nel modello discreto): C3 = 80 ms non trova la soglia di rottura.</dd></div>
+    <div><dt>Massa non nota</dt><dd>Nessuno dei tre ha un'azione integrale, quindi se il controllore usa la massa nominale resta un errore a regime in quota: <span data-v="massa.0.ez_bs" data-d="2"></span> m per BS/GEO e <span data-v="massa.0.ez_dfl" data-d="2"></span> m per il DFL, già in B1.</dd></div>
+  </dl>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="col" id="modello">
+  <div><span class="sec-num">2</span><h2>Il modello lineare del drone</h2></div>
+
+  <h3>Il modello non lineare</h3>
+  <p>È quello su cui sono costruiti i tre controllori: z verso l'alto, angoli ZYX, spinta lungo l'asse z del corpo.</p>
+  <div class="math-block">$$m\ddot p = -mg\,e_3 + T\,R\,e_3,\qquad J\dot\omega = -\omega\times J\omega + \tau,\qquad \dot\eta = W(\eta)\,\omega$$</div>
+
+  <h3>Linearizzazione in hover</h3>
+  <p>L'equilibrio è \(p = p_0\), \(v = 0\), \(\eta = 0\), \(\omega = 0\), \(T = mg\), con tutti i motori a \(\Omega_h\). Al primo ordine \(R e_3 \approx (\theta,\,-\phi,\,1)^T\), il termine \(\omega\times J\omega\) è del secondo ordine e \(W \approx I\). Con \(T = mg + \delta T\):</p>
+  <div class="math-block">$$\ddot x = g\,\theta,\qquad \ddot y = -g\,\phi,\qquad \ddot z = \frac{\delta T}{m},\qquad \ddot\phi = \frac{\tau_\phi}{I_x},\qquad \ddot\theta = \frac{\tau_\theta}{I_y},\qquad \ddot\psi = \frac{\tau_\psi}{I_z}$$</div>
+  <p>Gli assi sono disaccoppiati. Ogni asse laterale è una catena di quattro integratori, \(x \to \dot x \to \theta \to \dot\theta\), con un solo ingresso. Quota e imbardata sono doppi integratori.</p>
+  <ul>
+    <li><strong>Imbardata diversa da zero.</strong> Ruota soltanto il piano orizzontale. Tutti e tre i controllori invertono con l'imbardata misurata, quindi il modello a \(\psi_0 = 0\) vale per qualsiasi \(\psi_0\).</li>
+    <li><strong>Inerzia.</strong> Il modello usa solo la diagonale di \(J\), come i controllori. Se nella stampa del <code>Drone</code> i termini fuori diagonale superano l'1% circa, gli assi si accoppiano e questo modello non basta più.</li>
+  </ul>
+
+  <h3>I motori: il polo non dipende dal punto di lavoro</h3>
+  <p>Il mixer è lineare nei quadrati delle velocità, il comando passa per la radice e ogni motore è un primo ordine sulla velocità:</p>
+  <div class="math-block">$$u = (T,\,\tau_\phi,\,\tau_\theta,\,\tau_\psi)^T = M\,w,\qquad w_i = \Omega_i^2$$</div>
+  <div class="math-block">$$\Omega_{cmd,i} = \sqrt{(M^{-1}u_{cmd})_i},\qquad \tau_m\dot\Omega_i = \Omega_{cmd,i} - \Omega_i$$</div>
+  <p>Linearizzando attorno a \(\Omega_{h,i}\) si ha \(\delta w_i = 2\Omega_{h,i}\,\delta\Omega_i\) e \(\delta\Omega_{cmd,i} = \delta w_{cmd,i}/(2\Omega_{h,i})\). Il fattore \(2\Omega_{h,i}\) si semplifica:</p>
+  <div class="math-block">$$\tau_m\,\delta\dot w_i = \delta w_{cmd,i} - \delta w_i\qquad\Longrightarrow\qquad \delta u(s) = \frac{1}{\tau_m s + 1}\,\delta u_{cmd}(s)$$</div>
+  <p>Tutti i motori hanno lo stesso \(\tau_m\), quindi lo stesso primo ordine passa attraverso \(M\): spinta e coppie realizzate seguono quelle comandate con <strong>lo stesso polo a qualsiasi \(\Omega_h\)</strong>, cioè a qualsiasi massa.</p>
+
+  <h3>Ingressi normalizzati: massa e inerzia spariscono</h3>
+  <p>Gli ingressi diventano accelerazioni: \(u\) è quella comandata e \(a\) quella realizzata dal motore, per esempio \(u_\theta = \tau_{\theta,cmd}/I_y\) oppure \(u_z = \delta T_{cmd}/m\). I tre controllori calcolano proprio un'accelerazione e la moltiplicano per \(m\) o \(J\), quindi il prodotto si semplifica. L'asse x:</p>
+  <div class="math-block">$$\frac{d}{dt}\begin{bmatrix}x\\ v_x\\ \theta\\ q\\ a\end{bmatrix} = \begin{bmatrix}0&1&0&0&0\\ 0&0&g&0&0\\ 0&0&0&1&0\\ 0&0&0&0&1\\ 0&0&0&0&-1/\tau_m\end{bmatrix}\begin{bmatrix}x\\ v_x\\ \theta\\ q\\ a\end{bmatrix} + \begin{bmatrix}0\\ 0\\ 0\\ 0\\ 1/\tau_m\end{bmatrix}u_\theta$$</div>
+  <p>L'asse y è identico, con \(-g\) e \(\phi\). Quota, imbardata e assetto da solo hanno stati \((q, \dot q, a)\). In nessuna matrice compaiono \(m\) o \(J\).</p>
+
+  <h3>Il modello discreto, nell'ordine del ciclo</h3>
+  <p>In <code>main_hover.py</code> si legge lo stato a \(t_k\), si calcola \(u_k\), poi <code>Drone.comanda_motori</code> aggiorna \(\Omega\) e applica la forza con il valore <em>già aggiornato</em>, costante per tutto il passo. Con \(s = (x, v_x, \theta, q)\) e \(\alpha = 1 - e^{-T_c/\tau_m}\), come in <code>Drone.alpha</code>:</p>
+  <div class="math-block">$$a_{k+1} = (1-\alpha)\,a_k + \alpha\,u_k,\qquad s_{k+1} = \Phi\,s_k + \Gamma\,a_{k+1}$$</div>
+  <div class="math-block">$$\Phi = \begin{bmatrix}1&T_c&gT_c^2/2&gT_c^3/6\\ 0&1&gT_c&gT_c^2/2\\ 0&0&1&T_c\\ 0&0&0&1\end{bmatrix},\qquad \Gamma = \begin{bmatrix}gT_c^4/24\\ gT_c^3/6\\ T_c^2/2\\ T_c\end{bmatrix}$$</div>
+  <p>Per una catena di integratori queste matrici sono esatte. Tenere costante il comando sul passo ritarda di circa mezzo passo; usare la velocità del motore di fine passo anticipa di circa mezzo passo. Il ritardo netto è quasi nullo, quindi il modello continuo con \(e^{-sT_c/2}\), quello dei blocchi Verifica, è leggermente pessimistico. In questa pagina si riportano entrambi.</p>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="col" id="leggi">
+  <div><span class="sec-num">3</span><h2>Le tre leggi linearizzate</h2></div>
+  <p>Notazione: per ogni canale il polinomio desiderato è \(s^2 + \beta s + \alpha\), con \(\beta = 2\zeta\omega_n\) e \(\alpha = \omega_n^2\). Pedici \(p\) per la posizione, \(a\) per l'assetto. Gli stati sono scarti dall'hover, con riferimento fermo.</p>
+
+  <h3>Backstepping</h3>
+  <div class="math-block">$$\mu_x = -\alpha_p\,x - \beta_p\,v_x,\qquad \theta_d = \frac{\mu_x}{g},\qquad u_\theta = \ddot\theta_d + \alpha_a(\theta_d - \theta) + \beta_a(\dot\theta_d - q)$$</div>
+  <p>Le derivate di \(\theta_d\) si possono trattare in tre modi:</p>
+  <ul>
+    <li><strong>nulle</strong>: \(\dot\theta_d = \ddot\theta_d = 0\), cioè <code>tau_filtro=None</code>, come oggi in <code>main_hover.py</code>;</li>
+    <li><strong>esatte</strong>: lungo il modello, \(\dot\theta_d = -(\alpha_p v_x + \beta_p g\theta)/g\) e \(\ddot\theta_d = -(\alpha_p\theta + \beta_p q)\);</li>
+    <li><strong>filtrate</strong>: \(\dot\theta_d \approx D\,\theta_d\) e \(\ddot\theta_d \approx D^2\theta_d\), con \(D(s) = s/(\tau_f s + 1)\). Nel modello discreto il filtro è scritto come in <code>_derivate_assetto</code> (Eulero all'indietro) e parte a regime su \(\theta_d(0)\), come fa <code>primo_passo</code>.</li>
+  </ul>
+
+  <h3>Controllo geometrico</h3>
+  <p>In hover \(e_R \approx \eta - \eta_d\), \(e_\Omega \approx \omega - \Omega_d\) e \(f \approx m(g + \mu_z)\). Con guadagni diagonali \(K_x = m\,\mathrm{diag}(\alpha_p)\), \(K_v = m\,\mathrm{diag}(\beta_p)\), \(K_R = J\,\mathrm{diag}(\alpha_a)\), \(K_\Omega = J\,\mathrm{diag}(\beta_a)\) la legge linearizzata è <strong>la stessa del BS</strong>, con \(\Omega_d, \dot\Omega_d\) al posto di \(\dot\theta_d, \ddot\theta_d\). Per questo in tutta la pagina BS e GEO compaiono insieme.</p>
+
+  <h3>Linearizzazione in retroazione dinamica</h3>
+  <p>Sull'asse x la legge impone \(x^{(4)} = -c_3 x^{(3)} - c_2\ddot x - c_1\dot x - c_0 x\), con \(\ddot x = g\theta\) e \(x^{(3)} = g q\) dal modello:</p>
+  <div class="math-block">$$u_\theta = -\frac{c_0}{g}\,x - \frac{c_1}{g}\,v_x - c_2\,\theta - c_3\,q$$</div>
+  <p>Sulla quota c'è il compensatore \(\zeta = (T, \dot T)\). Normalizzato, \(\xi = (\delta\zeta_1, \zeta_2)/m\):</p>
+  <div class="math-block">$$\dot\xi_1 = \xi_2,\qquad \dot\xi_2 = -c_0\,z - c_1\,v_z - c_2\,\xi_1 - c_3\,\xi_2,\qquad u_z = \xi_1$$</div>
+  <p>Il compensatore ricava \(\ddot z\) e \(z^{(3)}\) da \(\xi\), cioè dalla spinta <em>comandata</em>: il motore non lo vede. Nel modello discreto \(\xi\) è integrato con Eulero in avanti, come in <code>controllore_dfl.py</code>: si comanda \(T = \zeta_1\) e poi si aggiorna \(\zeta\). Sull'imbardata il DFL coincide con il BS.</p>
+
+  <h3>Stessi poli, stessa legge</h3>
+  <p>Sull'asse x ognuna delle leggi è \(u_\theta = K\,(x, v_x, \theta, q)^T\). La catena ha un solo ingresso, quindi il polinomio caratteristico fissa \(K\) in modo unico (Ackermann). Il BS con le derivate esatte e il DFL hanno lo stesso polinomio, e infatti hanno lo stesso \(K\):</p>
+  <div id="t-K"></div>
+  <p class="cap">Con le derivate nulle il vettore cambia: è un'altra legge, con altri poli (§6). Con la derivata filtrata la legge ha due stati in più, quelli del filtro.</p>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="wide" id="guadagni">
+  <div class="col">
+    <div><span class="sec-num">4</span><h2>Dai poli ai guadagni</h2></div>
+    <p>I poli nominali sono quelli dei guadagni di <code>main_hover.py</code>. Il BS ammette solo poli con \(\zeta \ge \sqrt{1 - 1/\omega_n^2}\), perché \(k_1, k_2\) sono le radici di \(k^2 - \beta k + (\alpha - 1) = 0\). DFL e GEO non hanno questo vincolo, ma devono usare gli stessi poli.</p>
+  </div>
+  <div id="t-guadagni"></div>
+  <div class="col">
+    <p class="cap">Per GEO la tabella dà i guadagni divisi per la massa o per l'inerzia. Quelli fisici vanno moltiplicati per \(m\) e \(J\) letti dalla scena, e ricalcolati quando cambiano (scenario B). I coefficienti del DFL in quota includono la coppia di poli in più, qui −9 doppio.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="wide" id="margini">
+  <div class="col">
+    <div><span class="sec-num">5</span><h2>Margini e carta di Nichols</h2></div>
+    <p>L'anello si apre dove entra il comando, prima del motore: \(L(j\omega) = -K(j\omega)\,C\,(j\omega I - A)^{-1}B\,e^{-j\omega T_c/2}\). È il punto in cui agiscono le dinamiche che nessun controllore conosce, cioè motore e campionamento. Per il BS c'è anche il taglio dove entra \(\theta_d\), cioè sull'anello di posizione. La specifica è un margine di fase di almeno 50°, con motore e campionamento inclusi.</p>
+    <p>Sulla carta di Nichols il punto critico è \((-180°, 0\ \mathrm{dB})\). La fascia rossa sulla linea di 0 dB è la zona in cui l'attraversamento darebbe meno di 50° di margine. Passando sopra un grafico si legge lo stesso \(\omega\) su tutte le curve.</p>
+  </div>
+  <div class="figs">
+    <figure class="fig"><figcaption><b>Anello d'assetto, ζ = 1</b><span>Comune ai tre controllori. Alzando \(\omega_n\) la curva sale e l'attraversamento si sposta verso il punto critico.</span></figcaption><div id="f-nich-att"></div></figure>
+    <figure class="fig"><figcaption><b>Margine di fase dell'assetto al variare di ω<sub>n</sub></b><span>Con ζ = 1, motore e mezzo passo di ritardo. La specifica dei 50° fissa la velocità massima dell'assetto.</span></figcaption><div id="f-pm-wn"></div></figure>
+    <figure class="fig"><figcaption><b>Asse x, anello aperto all'attuatore</b><span>Anello condizionatamente stabile: la curva parte da −360° e passa sopra il punto critico. C'è quindi anche un margine di guadagno inferiore (tabella).</span></figcaption><div id="f-nich-act"></div></figure>
+    <figure class="fig"><figcaption><b>Asse x del BS, anello aperto su θ<sub>d</sub></b><span>Con le derivate nulle il margine dell'anello di posizione scende a <span data-v="margini_pos.nulle.pm"></span>°. La derivata filtrata lo porta a <span data-v="margini_pos.filtrate.pm"></span>°.</span></figcaption><div id="f-nich-pos"></div></figure>
+    <figure class="fig"><figcaption><b>Quota, anello aperto all'attuatore</b><span>Il compensatore del DFL aggiunge due poli, che portano la fase sotto −180° a frequenza bassa: il margine di guadagno resta piccolo.</span></figcaption><div id="f-nich-z"></div></figure>
+  </div>
+  <div id="t-margini"></div>
+  <div class="col">
+    <h3>Cosa dicono i margini</h3>
+    <ul>
+      <li><strong>Assetto</strong>: <span data-v="margini.0.cont.pm"></span>°, specifica rispettata.</li>
+      <li><strong>Asse x all'attuatore</strong>: BS/GEO <span data-v="margini.1.cont.pm"></span>°, DFL <span data-v="margini.3.cont.pm"></span>°. La differenza è il costo del filtro sulle derivate, circa 4°: con le derivate esatte il BS coincide con il DFL. Con \(\tau_f\) = 10 ms il BS sale a <span data-v="margini_pos.act_10ms.pm"></span>°.</li>
+      <li><strong>Derivate nulle</strong>: all'attuatore hanno più margine (<span data-v="margini.2.cont.pm"></span>°), ma l'anello di posizione scende a <span data-v="margini_pos.nulle.pm"></span>°. Il margine che conta è il più piccolo dei due tagli.</li>
+      <li><strong>Discreto esatto</strong>: tutti i margini di fase salgono di 1–3°. Il margine di guadagno superiore dell'asse x passa da <span data-v="margini.1.cont.gm" data-d="0"></span> dB a <span data-v="margini.1.disc.gm" data-d="0"></span> dB, perché nel discreto la fase arriva a −180° solo alla frequenza di Nyquist.</li>
+      <li><strong>DFL in quota</strong>: margine di guadagno di <span data-v="margini.5.cont.gm"></span> dB a <span data-v="margini.5.cont.wg" data-d="1"></span> rad/s con i poli in più a −9, contro <span data-v="margini.4.cont.gm"></span> dB di BS/GEO. Spostando i poli in più a −25 il margine di fase sale a <span data-v="margini.7.cont.pm"></span>°.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="wide" id="poli">
+  <div class="col">
+    <div><span class="sec-num">6</span><h2>Poli in anello chiuso</h2></div>
+    <p>Senza motore i poli sono quelli progettati, se le derivate sono esatte. Con il motore cambia soprattutto l'assetto: il motore (50 rad/s) è solo 5.6 volte più veloce dei poli d'assetto. I poli del modello discreto sono convertiti con \(s = \ln z / T_c\).</p>
+  </div>
+  <div id="t-poli"></div>
+  <div class="col">
+    <ul>
+      <li>Con la <strong>derivata filtrata</strong> i poli di posizione restano in <span data-p="poli.0.con" data-d="2" data-ultimi="1"></span>; il resto sono assetto, filtro e motore mescolati.</li>
+      <li>Con le <strong>derivate nulle</strong> anche i poli di posizione si spostano: è il 19% di errore sulla risposta della §7.</li>
+      <li>Modello continuo e discreto danno poli quasi uguali: il passo di 5 ms è piccolo rispetto a tutte le dinamiche, tranne quella più veloce del motore con il filtro.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="wide" id="gradini">
+  <div class="col">
+    <div><span class="sec-num">7</span><h2>Risposte al gradino</h2></div>
+    <p>Gradino di 10 cm su x, come in T1-N1. Il drone parte fermo, con i motori a \(\Omega_h\) e scostato di 10 cm dal riferimento. La curva blu, ricavata dal modello discreto esatto, è la <strong>previsione con cui confrontare CoppeliaSim</strong> nella FASE 4.2.</p>
+  </div>
+  <div class="figs">
+    <figure class="fig"><figcaption><b>Errore di posizione x − x<sub>d</sub></b><span>BS/GEO con derivata filtrata e DFL quasi coincidono (<span data-v="gradino_x.dfl_vs_bs_mm" data-d="2"></span> mm al massimo). Le derivate nulle danno un'altra risposta.</span></figcaption><div id="f-gx"></div></figure>
+    <figure class="fig"><figcaption><b>Beccheggio θ</b><span>Sotto il grado: il gradino di 10 cm resta pienamente nel regime lineare.</span></figcaption><div id="f-gth"></div></figure>
+  </div>
+  <div id="t-gx"></div>
+  <div class="col">
+    <p class="cap">\(u_{max}\) è il picco dell'accelerazione angolare comandata, uguale per tutti all'istante iniziale (\(\alpha_a\,\theta_d(0)\)). Moltiplicato per \(I_y\) dà la coppia di picco. La "distanza" è lo scarto massimo dalla previsione discreta del BS/GEO.</p>
+    <h3>Quota: la coppia di poli in più del DFL</h3>
+    <p>Gradino di 0.5 m su z. BS e GEO sono un secondo ordine; il DFL è un quarto ordine, con due poli da scegliere (decisione 0.7 di <code>STEPS_progetto.md</code>).</p>
+  </div>
+  <div class="figs">
+    <figure class="fig"><figcaption><b>Errore di quota z − z<sub>d</sub></b><span>Più veloci sono i poli in più, più la risposta del DFL si avvicina a quella di BS/GEO.</span></figcaption><div id="f-gz"></div></figure>
+  </div>
+  <div id="t-gz"></div>
+  <div class="col">
+    <p class="cap">\(u_{z,max}\) è il picco di \(\delta T/m\): la spinta di picco è \(T = m(g + u_{z,max})\). BS/GEO danno il picco all'istante iniziale; il compensatore del DFL fa crescere la spinta in modo graduale, quindi anche con −25 doppio il picco resta sotto quello di BS/GEO. Imbardata, gradino di 10°: entro 0.5° in <span data-v="gradino_psi.t_5" data-d="2"></span> s, senza sovraelongazione.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 8 -->
+<section class="wide" id="massa">
+  <div class="col">
+    <div><span class="sec-num">8</span><h2>Scenario B: la massa</h2></div>
+    <p><strong>Con la massa nota</strong>, come prevede il planning, il modello lineare è identico per tutti i livelli di B: stessi poli, margini e risposta. Le differenze vengono solo dalle saturazioni, cioè dalla riserva di spinta \(T_{max}/(mg)\) e, oltre ×2, dalla coppia disponibile. Per GEO questo vale solo se \(K_x, K_v, K_R, K_\Omega\) vengono ricalcolati con \(m\) e \(J\) della scena. Se restassero quelli nominali, in B3 i suoi \(\omega_n\) scenderebbero di \(1 - 1/\sqrt{2.5} \approx 37\%\), mentre BS e DFL resterebbero fermi.</p>
+    <p>Un controllo gratuito: T1-N1 con la massa di B3 deve sovrapporsi a T1-N1 nominale, per tutti e tre.</p>
+    <p><strong>Con la massa non nota</strong> (controprova, planning §9.4) il controllore usa \(m_0, J_0\) e il drone pesa \(k\) volte tanto. Succedono due cose:</p>
+    <ul>
+      <li><strong>Errore a regime in quota.</strong> Il drone si ferma sotto il riferimento. Per BS e GEO \(m_0(\alpha_z e + g) = mg\), quindi \(e = g(k-1)/\alpha_z\). Per il DFL \(c_2\,\ddot z_{stimata} + c_0\,e = 0\) con \(\ddot z_{stimata} = g(k-1)\), quindi \(e = (c_2/c_0)\,g(k-1)\).</li>
+      <li><strong>Meno guadagno d'anello.</strong> Le coppie sono \(J_0\nu\), quindi l'anello d'assetto perde un fattore \(1/k\).</li>
+    </ul>
+  </div>
+  <div id="t-massa"></div>
+  <div class="col">
+    <p class="cap">L'errore in quota è grande già in B1 e cresce linearmente con \(k\): la controprova ha senso solo su B1, come scritto nel planning. Il margine di guadagno inferiore dell'asse x (−18 dB in nominale) resta lontano: ridurre il guadagno di 2.5 volte vale −8 dB.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 9 -->
+<section class="wide" id="scenario-c">
+  <div class="col">
+    <div><span class="sec-num">9</span><h2>Scenario C: motori lenti</h2></div>
+    <p>Nessun controllore modella il motore, quindi \(\tau_m\) è un errore di modello comune. Sugli assi x, y e sull'imbardata la legge lineare è la stessa per BS e GEO, e differisce dal DFL solo per il filtro sulle derivate. In hover, differenze grandi in C possono venire solo dalla quota e dalle non linearità.</p>
+  </div>
+  <div class="figs">
+    <figure class="fig"><figcaption><b>Margine di fase al variare di τ<sub>m</sub></b><span>Continuo con mezzo passo di ritardo. Le linee verticali sono i livelli del planning. Sotto 0° l'anello è instabile.</span></figcaption><div id="f-taum"></div></figure>
+  </div>
+  <div id="t-taum"></div>
+  <div class="col">
+    <p class="cap">L'asse x diventa instabile a \(\tau_m \approx\) <span data-v="tau_m.instab_cont" data-d="0"></span> ms nel modello continuo e a <span data-v="tau_m.instab_disc" data-d="0"></span> ms in quello discreto. C3 = 80 ms ha ancora <span data-v="tau_m.tabella.3.act.pm"></span>° di margine: per trovare la soglia di rottura serve un livello verso 100–120 ms.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 10 -->
+<section class="wide" id="kappa">
+  <div class="col">
+    <div><span class="sec-num">10</span><h2>Sensibilità alla taratura</h2></div>
+    <p>Tutti gli \(\omega_n\) moltiplicati per \(\kappa\), per tutti e tre i controllori (FASE 7). A \(\kappa = 1.3\) il BS non può tenere lo \(\zeta\) nominale su x, y e z: \(\zeta\) sale al minimo ammesso, dove \(k_1 = k_2\), e gli stessi poli vanno dati a DFL e GEO.</p>
+  </div>
+  <div class="figs">
+    <figure class="fig"><figcaption><b>Gradino di 10 cm su x al variare di κ</b><span>BS/GEO con derivata filtrata, modello discreto.</span></figcaption><div id="f-kappa"></div></figure>
+  </div>
+  <div id="t-kappa"></div>
+  <div class="col">
+    <p class="cap">Solo κ = 0.7 rispetta i 50° anche all'attuatore. κ = 1.3 è sotto la specifica anche sull'assetto: va bene come livello aggressivo, ma non insieme allo scenario C.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 11 -->
+<section class="wide" id="controlli">
+  <div class="col">
+    <div><span class="sec-num">11</span><h2>Controlli contro i blocchi Verifica</h2></div>
+    <p>I numeri dei blocchi «Verifica» di <code>STEPS_progetto.md</code>, ricalcolati con <code>analisi/lineare.py</code>, sono il criterio di fine della FASE 0. Il blocco Verifica dell'Esercizio 14 dà 1.4° per κ = 1.3: è 1.35° arrotondato.</p>
+  </div>
+  <details class="more" open><summary>Mostra o nascondi la tabella</summary><div id="t-controlli"></div></details>
+</section>
+
+<!-- ============================================================ 12 -->
+<section class="col" id="decisioni">
+  <div><span class="sec-num">12</span><h2>Le decisioni che l'analisi informa</h2></div>
+  <dl class="findings">
+    <div><dt>Specifica di margine</dt><dd>Scriverla con due numeri: <strong>≥ 50° sull'anello d'assetto e ≥ 40° all'attuatore</strong>. Con i poli nominali BS/GEO hanno <span data-v="margini.1.cont.pm"></span>° (<span data-v="margini.1.disc.pm"></span>° nel discreto) e il DFL <span data-v="margini.3.cont.pm"></span>°. In alternativa si rallenta tutto a κ = 0.7, con <span data-v="kappa.0.pm_act"></span>° all'attuatore, ma cambiano tutti i numeri di riferimento.</dd></div>
+    <div><dt>Derivate dell'assetto desiderato</dt><dd>Derivata filtrata con \(\tau_f\) = 20 ms confermata: <span data-v="derivate.filtrate.dist_mm" data-d="2"></span> mm dalla risposta esatta. Con 10 ms si guadagnano circa 2° all'attuatore, ma il filtro lavora su soli due passi.</dd></div>
+    <div><dt>Poli in più del DFL su z</dt><dd>L'analisi indica <strong>−25 doppio</strong>: margine di fase <span data-v="margini.7.cont.pm"></span>° invece di <span data-v="margini.5.cont.pm"></span>°, risposta più vicina a BS/GEO (<span data-v="gradino_z.metriche.3.dist_mm" data-d="0"></span> mm invece di <span data-v="gradino_z.metriche.1.dist_mm" data-d="0"></span>), picco di spinta ancora sotto quello di BS/GEO. Il margine di guadagno resta comunque sotto quello di BS/GEO, e va dichiarato.</dd></div>
+    <div><dt>Livelli dello scenario C</dt><dd>Aggiungere un livello verso 100–120 ms. Con 40, 60 e 80 ms nessuno dei tre arriva all'instabilità in hover.</dd></div>
+    <div><dt>Soglia di T1-N1</dt><dd>2 mm va bene: la teoria lineare prevede differenze sotto il millimetro tra i tre controllori e tra modello continuo e discreto.</dd></div>
+    <div><dt>Prima della verifica in CoppeliaSim</dt><dd>In <code>main_hover.py</code> passare <code>tau_filtro=0.02</code>: oggi gira con le derivate nulle, la risposta a 19 mm dalla previsione. Nel <code>Drone</code> far partire i motori da \(\Omega_h\) invece che da zero.</dd></div>
+  </dl>
+</section>
+
+<!-- ============================================================ 13 -->
+<section class="col" id="uso">
+  <div><span class="sec-num">13</span><h2>Come si usa</h2></div>
+  <ul>
+    <li><code>python analisi/lineare.py</code> stampa i controlli contro i blocchi Verifica e i poli dell'asse x.</li>
+    <li><code>python analisi/rapporto_lineare.py</code> rigenera questa pagina.</li>
+    <li>Per confrontare CoppeliaSim con la previsione: <code>t, x, theta, u = lineare.gradino_x(lineare.legge_bs_laterale())</code> dà \(x - x_d\) in metri, da +0.1 a 0, con il passo di 5 ms. Con <code>OFFSET_HOVER = (0.1, 0, 0)</code> il drone parte a −10 cm dal riferimento: la risposta è la stessa cambiata di segno.</li>
+    <li>Ipotesi del modello: regime lineare, \(J\) diagonale, baricentro al centro delle eliche, stato misurato esatto, integrazione esatta del motore fisico, DFL integrato con Eulero in avanti, come nella classe.</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+(function () {
+'use strict';
+const D = /*DATI*/;
+const NS = 'http://www.w3.org/2000/svg';
+const MENO = '−';
+let uid = 0;
+
+// ---------- utilità ----------
+function svgEl(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function htmlEl(tag, attrs, parent, text) {
+  const e = document.createElement(tag);
+  if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  if (text !== undefined) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function fmt(v, d) {
+  if (v === null || v === undefined || typeof v !== 'number' || !isFinite(v)) return '—';
+  d = d === undefined ? 1 : d;
+  let s = v.toFixed(d);
+  if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);
+  return s.replace('-', MENO);
+}
+function fmtGm(v, d) { return (v === null || v === undefined) ? '∞' : fmt(v, d === undefined ? 1 : d); }
+function fmtPolo(p, d) {
+  if (Math.abs(p[1]) < 1e-4) return fmt(p[0], d);
+  return fmt(p[0], d) + ' ± ' + fmt(Math.abs(p[1]), d) + 'j';
+}
+function poliStr(lista, d) {
+  d = d === undefined ? 2 : d;
+  const out = [];
+  for (let i = 0; i < lista.length; i++) {
+    const p = lista[i];
+    if (Math.abs(p[1]) >= 1e-4) { if (p[1] > 0) out.push(fmtPolo(p, d)); continue; }
+    const q = lista[i + 1];
+    if (q && Math.abs(q[1]) < 1e-4 && Math.abs(q[0] - p[0]) < 1e-3 * Math.max(1, Math.abs(p[0]))) { out.push(fmt(p[0], d) + ' doppio'); i++; }
+    else out.push(fmt(p[0], d));
+  }
+  return out;
+}
+function get(path) { return path.split('.').reduce(function (o, k) { return (o === null || o === undefined) ? undefined : o[k]; }, D); }
+
+// ---------- numeri nel testo ----------
+document.querySelectorAll('[data-v]').forEach(function (e) {
+  const v = get(e.dataset.v);
+  const d = e.dataset.d !== undefined ? +e.dataset.d : 1;
+  e.textContent = typeof v === 'number' ? fmt(v, d) : (v === null || v === undefined ? '∞' : String(v));
+});
+document.querySelectorAll('[data-p]').forEach(function (e) {
+  let p = poliStr(get(e.dataset.p), e.dataset.d !== undefined ? +e.dataset.d : 2);
+  if (e.dataset.ultimi) p = p.slice(-(+e.dataset.ultimi));
+  e.textContent = p.join(', ');
+});
+(function () {
+  const m = D.meta;
+  document.getElementById('meta').textContent = 'Generato il ' + m.data + (m.commit ? ' dal commit ' + m.commit + (m.sporco ? ' con modifiche non salvate' : '') : '') +
+    ' · τm = ' + fmt(m.tau_m * 1000, 0) + ' ms · Tc = ' + fmt(m.T_c * 1000, 0) + ' ms · τf = ' + fmt(m.tau_f * 1000, 0) + ' ms · g = ' + m.g + ' m/s²';
+  const ok = D.controlli.filter(function (c) { return c.ok; }).length;
+  const e = document.getElementById('esito-controlli');
+  e.textContent = '';
+  htmlEl('strong', null, e, 'Controlli: ' + ok + ' su ' + D.controlli.length + '. ');
+  e.appendChild(document.createTextNode(ok === D.controlli.length
+    ? 'Tutti i numeri dei blocchi Verifica di STEPS_progetto.md sono riprodotti (§11).'
+    : 'Alcuni numeri dei blocchi Verifica non sono riprodotti: vedi §11.'));
+})();
+
+// ---------- tabelle ----------
+function tabella(id, intest, righe, opt) {
+  const host = document.getElementById(id);
+  host.textContent = '';
+  const w = htmlEl('div', { class: 'table-wrap' }, host);
+  const t = htmlEl('table', null, w);
+  if (opt && opt.minW) t.style.minWidth = opt.minW + 'px';
+  const tr = htmlEl('tr', null, htmlEl('thead', null, t));
+  intest.forEach(function (x) { htmlEl('th', { scope: 'col' }, tr, x); });
+  const tb = htmlEl('tbody', null, t);
+  righe.forEach(function (r) {
+    if (r.gruppo) { const g = htmlEl('tr', { class: 'grp' }, tb); htmlEl('td', { colspan: intest.length }, g, r.gruppo); return; }
+    const row = htmlEl('tr', null, tb);
+    r.forEach(function (c, j) {
+      if (c && typeof c === 'object' && c.pill !== undefined) { const td = htmlEl('td', null, row); htmlEl('span', { class: 'pill ' + (c.pill ? 'ok' : 'bad') }, td, c.t); return; }
+      if (c && typeof c === 'object') { htmlEl('td', { class: c.c || '' }, row, c.t); return; }
+      htmlEl('td', { class: j === 0 ? '' : 'num' }, row, c);
+    });
+  });
+}
+
+function tabellaVista(host, intest, righe) {
+  const det = htmlEl('details', { class: 'tv' }, host);
+  htmlEl('summary', null, det, 'Valori in tabella');
+  const w = htmlEl('div', { class: 'table-wrap' }, det);
+  const t = htmlEl('table', null, w);
+  const tr = htmlEl('tr', null, htmlEl('thead', null, t));
+  intest.forEach(function (x) { htmlEl('th', { scope: 'col' }, tr, x); });
+  const tb = htmlEl('tbody', null, t);
+  righe.forEach(function (r) { const row = htmlEl('tr', null, tb); r.forEach(function (c, j) { htmlEl('td', { class: j === 0 && typeof c === 'string' && /[a-z]/i.test(c) ? '' : 'num' }, row, c); }); });
+}
+
+// ---------- grafici ----------
+function passo(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), q = raw / p; return (q < 1.5 ? 1 : q < 3 ? 2 : q < 7 ? 5 : 10) * p; }
+function tacche(min, max, st) { const out = []; for (let v = Math.ceil(min / st - 1e-9) * st; v <= max + 1e-9; v += st) out.push(+v.toFixed(10)); return out; }
+function fmtTick(t) { const s = Number.isInteger(t) ? String(t) : String(+t.toFixed(3)); return s.replace('-', MENO); }
+
+function cornice(plot, o) {
+  const m = { l: 56, r: 16, t: 14, b: 46 };
+  const W = o.W, H = o.H, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const svg = svgEl('svg', { class: 'chart', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': o.aria || '' });
+  plot.insertBefore(svg, plot.firstChild);
+  const sx = function (v) { return m.l + (v - o.x.min) / (o.x.max - o.x.min) * pw; };
+  const sy = function (v) { return m.t + (1 - (v - o.y.min) / (o.y.max - o.y.min)) * ph; };
+  const g = svgEl('g', null, svg);
+  tacche(o.x.min, o.x.max, o.x.step).forEach(function (t) { const x = sx(t); svgEl('line', { x1: x, x2: x, y1: m.t, y2: m.t + ph, class: 'grid' }, g); svgEl('text', { x: x, y: m.t + ph + 17, class: 'tick', 'text-anchor': 'middle' }, g, (o.x.fmt || fmtTick)(t)); });
+  tacche(o.y.min, o.y.max, o.y.step).forEach(function (t) { const y = sy(t); svgEl('line', { x1: m.l, x2: m.l + pw, y1: y, y2: y, class: 'grid' }, g); svgEl('text', { x: m.l - 8, y: y + 4, class: 'tick', 'text-anchor': 'end' }, g, (o.y.fmt || fmtTick)(t)); });
+  svgEl('rect', { x: m.l, y: m.t, width: pw, height: ph, class: 'frame' }, g);
+  svgEl('text', { x: m.l + pw / 2, y: H - 7, class: 'axlabel', 'text-anchor': 'middle' }, g, o.x.label);
+  svgEl('text', { x: 13, y: m.t + ph / 2, class: 'axlabel', 'text-anchor': 'middle', transform: 'rotate(-90 13 ' + (m.t + ph / 2) + ')' }, g, o.y.label);
+  const id = 'clip' + (++uid);
+  const cp = svgEl('clipPath', { id: id }, svgEl('defs', null, svg));
+  svgEl('rect', { x: m.l, y: m.t, width: pw, height: ph }, cp);
+  const area = svgEl('g', { 'clip-path': 'url(#' + id + ')' }, svg);
+  const top = svgEl('g', null, svg);
+  return { svg: svg, g: g, area: area, top: top, sx: sx, sy: sy, m: m, pw: pw, ph: ph, W: W, H: H };
+}
+
+function tracciato(c, xs, ys) {
+  let d = '', su = false;
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i], y = ys[i];
+    if (x === null || y === null || !isFinite(x) || !isFinite(y)) { su = false; continue; }
+    d += (su ? 'L' : 'M') + c.sx(x).toFixed(1) + ' ' + c.sy(y).toFixed(1);
+    su = true;
+  }
+  return d;
+}
+
+function legenda(host, voci) {
+  const lg = htmlEl('div', { class: 'legend' }, host);
+  voci.forEach(function (v) { const s = htmlEl('span', null, lg); htmlEl('i', { class: v.cls }, s); s.appendChild(document.createTextNode(v.name)); });
+}
+
+function rigaTip(tip, cls, valore, nome) {
+  const r = htmlEl('div', { class: 'row' }, tip);
+  if (cls) htmlEl('span', { class: 'key ' + cls }, r);
+  htmlEl('b', null, r, valore);
+  if (nome) htmlEl('span', null, r, nome);
+}
+function posTip(tip, plot, px, py) {
+  tip.hidden = false;
+  const w = tip.offsetWidth, W = plot.clientWidth;
+  let left = px + 14;
+  if (left + w > W) left = px - 14 - w;
+  if (left < 0) left = Math.max(0, W - w);
+  tip.style.left = left + 'px';
+  tip.style.top = Math.max(0, py) + 'px';
+}
+function quandoCambiaLarghezza(plot, disegna) {
+  let ultima = 0;
+  function f() { const W = Math.round(plot.clientWidth); if (W && W !== ultima) { ultima = W; disegna(W); } }
+  f();
+  if (window.ResizeObserver) new ResizeObserver(f).observe(plot);
+  else window.addEventListener('resize', f);
+}
+
+// Grafico a linee con mirino: o = {x, series:[{name, y, cls}], xName, xUnit, xDec, yUnit, yDec, xMin, xMax, yMin, yMax, refsX, refsY, marks, aria}
+function grafico(host, o) {
+  host.textContent = '';
+  if (o.series.length > 1) legenda(host, o.series);
+  const plot = htmlEl('div', { class: 'plot' }, host);
+  const tip = htmlEl('div', { class: 'tip' }, plot); tip.hidden = true;
+  const xs = o.x;
+  const xmin = o.xMin !== undefined ? o.xMin : xs[0], xmax = o.xMax !== undefined ? o.xMax : xs[xs.length - 1];
+  let lo = Infinity, hi = -Infinity;
+  o.series.forEach(function (s) { s.y.forEach(function (v, i) { if (v !== null && isFinite(v) && xs[i] >= xmin && xs[i] <= xmax) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
+  (o.refsY || []).forEach(function (r) { lo = Math.min(lo, r.v); hi = Math.max(hi, r.v); });
+  if (o.yMin !== undefined) lo = o.yMin;
+  if (o.yMax !== undefined) hi = o.yMax;
+  const ystep = passo(hi - lo, 5);
+  const ymin = o.yMin !== undefined ? o.yMin : Math.floor(lo / ystep) * ystep;
+  const ymax = o.yMax !== undefined ? o.yMax : Math.ceil(hi / ystep) * ystep;
+  const xstep = o.xStep || passo(xmax - xmin, 6);
+  const fx = o.xDec !== undefined ? o.xDec : 2, fy = o.yDec !== undefined ? o.yDec : 2;
+
+  quandoCambiaLarghezza(plot, function (W) {
+    plot.querySelectorAll('svg').forEach(function (s) { s.remove(); });
+    const H = o.h || Math.round(Math.max(250, Math.min(330, W * 0.6)));
+    const c = cornice(plot, { W: W, H: H, aria: o.aria, x: { min: xmin, max: xmax, step: xstep, label: o.xLabel }, y: { min: ymin, max: ymax, step: ystep, label: o.yLabel } });
+    (o.refsY || []).forEach(function (r) { const y = c.sy(r.v); svgEl('line', { x1: c.m.l, x2: c.m.l + c.pw, y1: y, y2: y, class: 'thr' }, c.area); if (r.label) svgEl('text', { x: c.m.l + c.pw - 6, y: y - 6, class: 'note soft', 'text-anchor': 'end' }, c.top, r.label); });
+    (o.refsX || []).forEach(function (r) { const x = c.sx(r.v); svgEl('line', { x1: x, x2: x, y1: c.m.t, y2: c.m.t + c.ph, class: 'thr' }, c.area); if (r.label) svgEl('text', { x: x + 4, y: c.m.t + 13, class: 'note soft' }, c.top, r.label); });
+    o.series.slice().reverse().forEach(function (s) { svgEl('path', { d: tracciato(c, xs, s.y), class: 'curve ' + s.cls }, c.area); });   // la prima serie resta sopra
+    (o.marks || []).forEach(function (mk) {
+      svgEl('circle', { cx: c.sx(mk.x), cy: c.sy(mk.y), r: 5, class: 'mk ' + (mk.cls || 'ink') }, c.top);
+      if (mk.label) svgEl('text', { x: c.sx(mk.x) + (mk.dx !== undefined ? mk.dx : 8), y: c.sy(mk.y) + (mk.dy !== undefined ? mk.dy : -9), class: 'note', 'text-anchor': mk.anchor || 'start' }, c.top, mk.label);
+    });
+    const croce = svgEl('line', { y1: c.m.t, y2: c.m.t + c.ph, class: 'cross', visibility: 'hidden' }, c.top);
+    const punti = svgEl('g', null, c.top);
+    const hit = svgEl('rect', { x: c.m.l, y: c.m.t, width: c.pw, height: c.ph, class: 'hit', tabindex: 0, 'aria-label': (o.aria || 'grafico') + '. Frecce sinistra e destra per scorrere i valori.' }, c.svg);
+    let idx = -1;
+    function mostra(i) {
+      idx = Math.max(0, Math.min(xs.length - 1, i));
+      while (idx > 0 && xs[idx] > xmax) idx--;
+      const x = c.sx(xs[idx]);
+      croce.setAttribute('x1', x); croce.setAttribute('x2', x); croce.setAttribute('visibility', 'visible');
+      punti.textContent = '';
+      tip.textContent = '';
+      htmlEl('div', { class: 'hd' }, tip, o.xName + ' = ' + fmt(xs[idx], fx) + (o.xUnit ? ' ' + o.xUnit : ''));
+      o.series.forEach(function (s) {
+        const v = s.y[idx];
+        if (v === null || !isFinite(v)) return;
+        if (v >= ymin && v <= ymax) svgEl('circle', { cx: x, cy: c.sy(v), r: 4.5, class: 'hdot ' + s.cls }, punti);
+        rigaTip(tip, o.series.length > 1 ? s.cls : null, fmt(v, fy) + (o.yUnit ? ' ' + o.yUnit : ''), o.series.length > 1 ? s.name : o.yName);
+      });
+      posTip(tip, plot, x * plot.clientWidth / c.W, c.m.t);
+    }
+    function nascondi() { tip.hidden = true; croce.setAttribute('visibility', 'hidden'); punti.textContent = ''; }
+    function vicino(evt) {
+      const r = c.svg.getBoundingClientRect();
+      const px = (evt.clientX - r.left) * (c.W / r.width);
+      const v = xmin + (px - c.m.l) / c.pw * (xmax - xmin);
+      let a = 0, b = xs.length - 1;
+      while (b - a > 1) { const mid = (a + b) >> 1; if (xs[mid] < v) a = mid; else b = mid; }
+      return Math.abs(xs[a] - v) <= Math.abs(xs[b] - v) ? a : b;
+    }
+    hit.addEventListener('pointermove', function (e) { mostra(vicino(e)); });
+    hit.addEventListener('pointerdown', function (e) { mostra(vicino(e)); });
+    hit.addEventListener('pointerleave', nascondi);
+    hit.addEventListener('focus', function () { mostra(idx >= 0 ? idx : Math.floor(xs.length / 4)); });
+    hit.addEventListener('blur', nascondi);
+    hit.addEventListener('keydown', function (e) {
+      const k = e.shiftKey ? 10 : 1;
+      if (e.key === 'ArrowRight') { mostra(idx + k); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft') { mostra(idx - k); e.preventDefault(); }
+      else if (e.key === 'Escape') nascondi();
+    });
+  });
+
+  // vista tabellare: circa 20 righe sull'intervallo mostrato
+  const ii = [];
+  const dentro = []; xs.forEach(function (v, i) { if (v >= xmin && v <= xmax) dentro.push(i); });
+  const n = Math.min(o.righe || 21, dentro.length);
+  for (let k = 0; k < n; k++) ii.push(dentro[Math.round(k * (dentro.length - 1) / (n - 1))]);
+  tabellaVista(host, [o.xName + (o.xUnit ? ' [' + o.xUnit + ']' : '')].concat(o.series.map(function (s) { return (o.series.length > 1 ? s.name : o.yName) + (o.yUnit ? ' [' + o.yUnit + ']' : ''); })),
+    ii.map(function (i) { return [fmt(xs[i], fx)].concat(o.series.map(function (s) { return fmt(s.y[i], fy); })); }));
+}
+
+// Carta di Nichols: curve = [{nome, w, fase, db, margini}], o = {pmMin, classi, aria}
+function nichols(host, curve, o) {
+  host.textContent = '';
+  const classi = o.classi || ['s1', 's2', 's3', 's4'];
+  legenda(host, curve.map(function (cv, i) { return { cls: classi[i], name: cv.nome + ' · PM ' + fmt(cv.margini.pm, 1) + '° · GM ' + fmtGm(cv.margini.gm) + ' dB' }; }));
+  const plot = htmlEl('div', { class: 'plot' }, host);
+  const tip = htmlEl('div', { class: 'tip' }, plot); tip.hidden = true;
+  let fmin = -180 - (o.pmMin || 30), fmax = -180 + (o.pmMin || 30), dmin = Infinity, dmax = -Infinity;
+  curve.forEach(function (cv) { cv.fase.forEach(function (v) { fmin = Math.min(fmin, v); fmax = Math.max(fmax, v); }); cv.db.forEach(function (v) { dmin = Math.min(dmin, v); dmax = Math.max(dmax, v); }); });
+  const fst = (fmax - fmin) > 210 ? 45 : 30;
+  fmin = Math.floor(fmin / fst) * fst; fmax = Math.ceil(fmax / fst) * fst;
+  dmin = Math.floor(dmin / 10) * 10; dmax = Math.ceil(dmax / 10) * 10;
+
+  quandoCambiaLarghezza(plot, function (W) {
+    plot.querySelectorAll('svg').forEach(function (s) { s.remove(); });
+    const H = Math.round(Math.max(270, Math.min(360, W * 0.66)));
+    const c = cornice(plot, { W: W, H: H, aria: o.aria, x: { min: fmin, max: fmax, step: fst, label: 'fase di L(jω) [°]', fmt: function (t) { return fmtTick(t) + '°'; } }, y: { min: dmin, max: dmax, step: 10, label: 'modulo di L(jω) [dB]' } });
+    svgEl('line', { x1: c.m.l, x2: c.m.l + c.pw, y1: c.sy(0), y2: c.sy(0), class: 'axisline' }, c.area);
+    if (o.pmMin) {
+      const x0 = c.sx(-180 - o.pmMin), x1 = c.sx(-180 + o.pmMin);
+      svgEl('rect', { x: x0, y: c.sy(0) - 5, width: x1 - x0, height: 10, rx: 2, class: 'invalid' }, c.area);
+      svgEl('text', { x: Math.max(x0, c.m.l) + 4, y: c.sy(0) + 18, class: 'note soft' }, c.top, 'PM < ' + o.pmMin + '°');
+    }
+    svgEl('circle', { cx: c.sx(-180), cy: c.sy(0), r: 5, class: 'crit' }, c.top);
+    svgEl('text', { x: c.sx(-180) - 8, y: c.sy(0) - 9, class: 'note soft', 'text-anchor': 'end' }, c.top, 'punto critico');
+    const scr = curve.map(function (cv) { return cv.fase.map(function (f, i) { return [c.sx(f), c.sy(cv.db[i])]; }); });
+    curve.slice().reverse().forEach(function (cv, j) {
+      const i = curve.length - 1 - j;
+      svgEl('path', { d: tracciato(c, cv.fase, cv.db), class: 'curve ' + classi[i] }, c.area);
+      if (cv.margini.pm !== null) svgEl('circle', { cx: c.sx(-180 + cv.margini.pm), cy: c.sy(0), r: 4.5, class: 'mk ' + classi[i] }, c.top);
+    });
+    const punti = svgEl('g', null, c.top);
+    const hit = svgEl('rect', { x: c.m.l, y: c.m.t, width: c.pw, height: c.ph, class: 'hit', tabindex: 0, 'aria-label': (o.aria || 'carta di Nichols') + '. Frecce sinistra e destra per scorrere le frequenze.' }, c.svg);
+    let ws = null;
+    function indice(cv, w) {
+      if (w < cv.w[0] * 0.97 || w > cv.w[cv.w.length - 1] * 1.03) return -1;
+      let a = 0, b = cv.w.length - 1;
+      while (b - a > 1) { const mid = (a + b) >> 1; if (cv.w[mid] < w) a = mid; else b = mid; }
+      return Math.abs(Math.log(cv.w[a] / w)) <= Math.abs(Math.log(cv.w[b] / w)) ? a : b;
+    }
+    function mostra(w) {
+      ws = w;
+      punti.textContent = '';
+      tip.textContent = '';
+      htmlEl('div', { class: 'hd' }, tip, 'ω = ' + fmt(w, w < 10 ? 2 : 1) + ' rad/s');
+      let px = null, py = null;
+      curve.forEach(function (cv, k) {
+        const i = indice(cv, w);
+        if (i < 0) return;
+        const p = scr[k][i];
+        if (p[0] >= c.m.l && p[0] <= c.m.l + c.pw && p[1] >= c.m.t && p[1] <= c.m.t + c.ph) svgEl('circle', { cx: p[0], cy: p[1], r: 4.5, class: 'hdot ' + classi[k] }, punti);
+        if (px === null) { px = p[0]; py = p[1]; }
+        rigaTip(tip, classi[k], fmt(cv.db[i], 1) + ' dB · ' + fmt(cv.fase[i], 0) + '°', cv.nome);
+      });
+      if (px === null) { tip.hidden = true; return; }
+      posTip(tip, plot, px * plot.clientWidth / c.W, Math.min(Math.max(c.m.t, py - 30), c.H - 120) * plot.clientWidth / c.W);
+    }
+    function nascondi() { tip.hidden = true; punti.textContent = ''; }
+    function vicino(evt) {
+      const r = c.svg.getBoundingClientRect();
+      const px = (evt.clientX - r.left) * (c.W / r.width), py = (evt.clientY - r.top) * (c.W / r.width);
+      let best = Infinity, w = null;
+      scr.forEach(function (pts, k) { pts.forEach(function (p, i) { const d = (p[0] - px) * (p[0] - px) + (p[1] - py) * (p[1] - py); if (d < best) { best = d; w = curve[k].w[i]; } }); });
+      return w;
+    }
+    hit.addEventListener('pointermove', function (e) { mostra(vicino(e)); });
+    hit.addEventListener('pointerdown', function (e) { mostra(vicino(e)); });
+    hit.addEventListener('pointerleave', nascondi);
+    hit.addEventListener('focus', function () { mostra(ws || curve[0].margini.wc || 1); });
+    hit.addEventListener('blur', nascondi);
+    hit.addEventListener('keydown', function (e) {
+      const f = e.shiftKey ? 1.25 : 1.04;
+      if (e.key === 'ArrowRight') { mostra((ws || 1) * f); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft') { mostra((ws || 1) / f); e.preventDefault(); }
+      else if (e.key === 'Escape') nascondi();
+    });
+  });
+
+  tabellaVista(host, ['Curva', 'ω attraversamento [rad/s]', 'PM [°]', 'ω a −180° [rad/s]', 'GM [dB]', 'GM inferiore [dB]'],
+    curve.map(function (cv) { const m = cv.margini; return [cv.nome, fmt(m.wc, 2), fmt(m.pm, 1), fmt(m.wg, 1), fmtGm(m.gm), m.gm_inf === null ? '—' : fmt(m.gm_inf, 1)]; }));
+}
+
+// ---------- figure ----------
+nichols(document.getElementById('f-nich-att'), D.nichols.assetto, { pmMin: 50, aria: "Carta di Nichols dell'anello d'assetto" });
+(function () {
+  const p = D.pm_wn;
+  const i9 = p.wn.indexOf(9);
+  grafico(document.getElementById('f-pm-wn'), {
+    x: p.wn, series: [{ name: 'margine di fase', y: p.pm, cls: 's1' }],
+    xName: 'ωₙ', xUnit: 'rad/s', xDec: 2, yName: 'margine di fase', yUnit: '°', yDec: 1,
+    xLabel: 'ωₙ dell\'assetto [rad/s]', yLabel: 'margine di fase [°]',
+    refsY: [{ v: 50, label: 'specifica 50°' }], refsX: [{ v: p.wn_max, label: fmt(p.wn_max, 1) }],
+    marks: i9 >= 0 ? [{ x: 9, y: p.pm[i9], label: 'nominale', cls: 's1', dx: -8, anchor: 'end', dy: 18 }] : [],
+    aria: "Margine di fase dell'assetto in funzione di omega_n"
+  });
+})();
+nichols(document.getElementById('f-nich-act'), D.nichols.attuatore, { pmMin: 50, aria: "Carta di Nichols dell'asse x all'attuatore" });
+nichols(document.getElementById('f-nich-pos'), D.nichols.posizione, { pmMin: 50, aria: "Carta di Nichols dell'anello di posizione del BS" });
+nichols(document.getElementById('f-nich-z'), D.nichols.quota, { pmMin: 50, aria: 'Carta di Nichols della quota' });
+
+(function () {
+  const S = D.gradino_x.serie;
+  const nomi = ['BS/GEO, derivata filtrata (previsione)', 'DFL', 'BS/GEO, derivate nulle'];
+  grafico(document.getElementById('f-gx'), {
+    x: S[0], xMax: 6, series: [{ name: nomi[0], y: S[1], cls: 's1' }, { name: nomi[1], y: S[2], cls: 's2' }, { name: nomi[2], y: S[3], cls: 's3' }],
+    xName: 't', xUnit: 's', yUnit: 'mm', yDec: 2, xLabel: 't [s]', yLabel: 'errore su x [mm]',
+    refsY: [{ v: 5, label: '5 mm' }, { v: 0 }], aria: 'Risposta al gradino di 10 centimetri su x'
+  });
+  grafico(document.getElementById('f-gth'), {
+    x: S[0], xMax: 6, series: [{ name: nomi[0], y: S[4], cls: 's1' }, { name: nomi[1], y: S[5], cls: 's2' }, { name: nomi[2], y: S[6], cls: 's3' }],
+    xName: 't', xUnit: 's', yUnit: '°', yDec: 3, xLabel: 't [s]', yLabel: 'θ [°]', refsY: [{ v: 0 }],
+    aria: 'Beccheggio durante il gradino su x'
+  });
+  const Z = D.gradino_z.serie;
+  grafico(document.getElementById('f-gz'), {
+    x: Z[0], series: [{ name: 'BS/GEO', y: Z[1], cls: 's1' }, { name: 'DFL, −9 doppio', y: Z[2], cls: 's2' }, { name: 'DFL, −15 doppio', y: Z[3], cls: 's3' }, { name: 'DFL, −25 doppio', y: Z[4], cls: 's4' }],
+    xName: 't', xUnit: 's', yUnit: 'mm', yDec: 1, xLabel: 't [s]', yLabel: 'errore su z [mm]',
+    refsY: [{ v: 25, label: '5%' }, { v: 0 }], aria: 'Risposta al gradino di mezzo metro in quota'
+  });
+  const T = D.tau_m;
+  grafico(document.getElementById('f-taum'), {
+    x: T.tm, series: [{ name: 'asse x, BS/GEO', y: T.serie.act, cls: 's1' }, { name: 'asse x, DFL', y: T.serie.act_dfl, cls: 's2' }, { name: 'assetto da solo', y: T.serie.att, cls: 's3' }, { name: 'quota, DFL −9 doppio', y: T.serie.z_dfl, cls: 's4' }],
+    xName: 'τm', xUnit: 'ms', xDec: 1, yUnit: '°', yDec: 1, xLabel: 'τm [ms]', yLabel: 'margine di fase [°]',
+    refsX: [{ v: 20, label: 'N' }, { v: 40, label: 'C1' }, { v: 60, label: 'C2' }, { v: 80, label: 'C3' }], refsY: [{ v: 0, label: 'instabile sotto' }],
+    aria: 'Margine di fase in funzione della costante di tempo dei motori'
+  });
+  const K = D.gradino_kappa;
+  grafico(document.getElementById('f-kappa'), {
+    x: K[0], xMax: 6, series: [{ name: 'κ = 0.7', y: K[1], cls: 'k1' }, { name: 'κ = 1', y: K[2], cls: 'k2' }, { name: 'κ = 1.3', y: K[3], cls: 'k3' }],
+    xName: 't', xUnit: 's', yUnit: 'mm', yDec: 2, xLabel: 't [s]', yLabel: 'errore su x [mm]', refsY: [{ v: 5, label: '5 mm' }, { v: 0 }],
+    aria: 'Gradino su x al variare di kappa'
+  });
+})();
+
+// ---------- tabelle del rapporto ----------
+(function () {
+  const g = D.guadagni;
+  const nomi = { xy: 'x, y', z: 'z', att: 'φ, θ', psi: 'ψ' };
+  const dflStr = function (c) { return c.map(function (v) { return fmt(v, 1); }).join(', '); };
+  const geo = { xy: 'Kx/m = ' + fmt(g.xy.alpha, 2) + ', Kv/m = ' + fmt(g.xy.beta, 2), z: 'Kx/m = ' + fmt(g.z.alpha, 2) + ', Kv/m = ' + fmt(g.z.beta, 2),
+                att: 'KR/J = ' + fmt(g.att.alpha, 0) + ', KΩ/J = ' + fmt(g.att.beta, 0), psi: 'KR/Jz = ' + fmt(g.psi.alpha, 0) + ', KΩ/Jz = ' + fmt(g.psi.beta, 0) };
+  const dfl = { xy: 'c3…c0 = ' + dflStr(g.dfl_xy), z: 'c3…c0 = ' + dflStr(g.dfl_z), att: 'dentro x, y', psi: '(c1, c0) = ' + dflStr(g.dfl_psi) };
+  tabella('t-guadagni', ['Canale', 'ωₙ [rad/s]', 'ζ', 'ζ min del BS', 'Poli', 'β, α', 'BS (k1, k2)', 'DFL', 'GEO (diagonale)'],
+    ['xy', 'z', 'att', 'psi'].map(function (c) {
+      const r = g[c];
+      return [nomi[c], fmt(r.wn, 3), fmt(r.zeta, 3), fmt(r.zeta_min, 3), { t: poliStr(r.poli, 2).join(', '), c: 'num' }, fmt(r.beta, 2) + ', ' + fmt(r.alpha, 2),
+        '(' + fmt(r.k[0], 2) + ', ' + fmt(r.k[1], 2) + ')', { t: dfl[c], c: 'wrapnum' }, { t: geo[c], c: 'wrapnum' }];
+    }), { minW: 980 });
+
+  const K = D.K_x;
+  tabella('t-K', ['Legge sull\'asse x', 'guadagno su x', 'su vₓ', 'su θ', 'su q'], [
+    ['BS, derivate nulle'].concat(K.bs_nulle.map(function (v) { return fmt(v, 2); })),
+    ['BS, derivate esatte'].concat(K.bs_esatte.map(function (v) { return fmt(v, 2); })),
+    ['DFL'].concat(K.dfl.map(function (v) { return fmt(v, 2); }))
+  ], { minW: 520 });
+
+  const righeM = D.margini.map(function (m) {
+    return [m.nome, { t: m.chi, c: 'sub' }, fmt(m.cont.pm, 1), fmt(m.cont.wc, 2), fmtGm(m.cont.gm), m.cont.gm_inf === null ? '—' : fmt(m.cont.gm_inf, 1), fmt(m.disc.pm, 1), fmtGm(m.disc.gm)];
+  });
+  const mp = D.margini_pos;
+  righeM.splice(4, 0,
+    ['Asse x del BS, aperto su θd, derivata filtrata', { t: 'BS, GEO', c: 'sub' }, fmt(mp.filtrate.pm, 1), fmt(mp.filtrate.wc, 2), fmtGm(mp.filtrate.gm), '—', '—', '—'],
+    ['Asse x del BS, aperto su θd, derivate nulle', { t: 'BS, GEO', c: 'sub' }, fmt(mp.nulle.pm, 1), fmt(mp.nulle.wc, 2), fmtGm(mp.nulle.gm), '—', '—', '—']);
+  tabella('t-margini', ['Anello', 'Per', 'PM [°]', 'ωc [rad/s]', 'GM [dB]', 'GM inferiore [dB]', 'PM discreto [°]', 'GM discreto [dB]'], righeM, { minW: 980 });
+
+  tabella('t-poli', ['Anello chiuso', 'Senza motore', 'Con motore', 'Discreto esatto'],
+    D.poli.map(function (p) { return [p.nome, { t: poliStr(p.senza, 2).join(', '), c: 'wrapnum' }, { t: poliStr(p.con, 2).join(', '), c: 'wrapnum' }, { t: poliStr(p.disc, 2).join(', '), c: 'wrapnum' }]; }), { minW: 980 });
+
+  tabella('t-gx', ['Gradino di 10 cm su x', 'Entro 5 mm [s]', 'Sovraelongazione [mm]', 'Inclinazione max [°]', 'u max [rad/s²]', 'Distanza dalla previsione [mm]'],
+    D.gradino_x.metriche.map(function (m) { return [m.nome, fmt(m.t_5mm, 2), fmt(m.sovra_mm, 2), fmt(m.incl_max, 3), fmt(m.u_max, 2), fmt(m.dist_mm, 2)]; }), { minW: 860 });
+
+  tabella('t-gz', ['Gradino di 0.5 m su z', 'Entro il 5% [s]', 'Distanza da BS/GEO [mm]', 'uz max [m/s²]', 'T max / mg'],
+    D.gradino_z.metriche.map(function (m) { return [m.nome, fmt(m.t_5, 2), fmt(m.dist_mm, 1), fmt(m.u_max, 2), fmt(1 + m.u_max / D.meta.g, 2)]; }), { minW: 640 });
+
+  tabella('t-taum', ['τm [ms]', 'Livello', 'Assetto', 'Asse x BS/GEO', 'Asse x DFL', 'Quota BS/GEO', 'Quota DFL −9', 'GM quota DFL [dB]', 'Imbardata'],
+    D.tau_m.tabella.map(function (t, i) { return [fmt(t.tm, 0), ['N', 'C1', 'C2', 'C3'][i] || '', fmt(t.att.pm, 1) + '°', fmt(t.act.pm, 1) + '°', fmt(t.act_dfl.pm, 1) + '°', fmt(t.z.pm, 1) + '°', fmt(t.z_dfl.pm, 1) + '°', fmtGm(t.z_dfl.gm), fmt(t.psi.pm, 1) + '°']; }), { minW: 900 });
+
+  tabella('t-kappa', ['κ', 'x, y: ωₙ, ζ → (k1, k2)', 'z', 'φ, θ', 'ψ', 'DFL x: c3…c0', 'PM assetto', 'PM attuatore', 'PM posizione', 'Entro 5 mm', 'Incl. max'],
+    D.kappa.map(function (k) {
+      const c = k.canali;
+      const s = function (r) { return fmt(r.wn, 2) + ', ' + fmt(r.zeta, 3) + ' → (' + fmt(r.k[0], 2) + ', ' + fmt(r.k[1], 2) + ')'; };
+      return [fmt(k.kappa, 1), { t: s(c.xy), c: 'wrapnum' }, { t: s(c.z), c: 'wrapnum' }, { t: s(c.att), c: 'wrapnum' }, { t: s(c.psi), c: 'wrapnum' },
+        { t: k.dfl_xy.map(function (v) { return fmt(v, 2); }).join(', '), c: 'wrapnum' }, fmt(k.pm_att, 1) + '°', fmt(k.pm_act, 1) + '°', fmt(k.pm_pos, 1) + '°', fmt(k.t_5mm, 2) + ' s', fmt(k.incl_max, 2) + '°'];
+    }), { minW: 1060 });
+
+  tabella('t-massa', ['Massa', 'Errore in quota BS/GEO [m]', 'DFL −9 doppio [m]', 'DFL −25 doppio [m]', 'PM assetto', 'PM asse x all\'attuatore', 'GM inferiore asse x [dB]'],
+    [['nominale', '0', '0', '0', fmt(D.margini[0].cont.pm, 1) + '°', fmt(D.margini[1].cont.pm, 1) + '°', fmt(D.margini[1].cont.gm_inf, 1)]].concat(
+      D.massa.map(function (m, i) { return ['×' + fmt(m.k, 1) + ' (B' + (i + 1) + ')', fmt(m.ez_bs, 2), fmt(m.ez_dfl, 2), fmt(D.massa_dfl_25[i], 2), fmt(m.att.pm, 1) + '°', fmt(m.act.pm, 1) + '°', fmt(m.act.gm_inf, 1)]; })), { minW: 860 });
+
+  tabella('t-controlli', ['Es.', 'Grandezza', 'Atteso', 'Calcolato', 'Esito'],
+    D.controlli.map(function (c) {
+      const d = c.descr.replace(/omega_n/g, 'ωₙ').replace(/theta_d/g, 'θd').replace(/tau_m/g, 'τm').replace(/zeta/g, 'ζ').replace(/kappa/g, 'κ')
+        .replace(/\[deg\]/g, '[°]').replace(/>=/g, '≥').replace(/ -(\d)/g, ' ' + MENO + '$1').replace(/_/g, ' ');
+      return [c.es, { t: d, c: '' }, String(c.atteso).replace('-', MENO), fmt(c.calcolato, 3), { pill: c.ok, t: c.ok ? 'ok' : 'no' }];
+    }), { minW: 680 });
+})();
+
+})();
+</script>
+</body>
+</html>
