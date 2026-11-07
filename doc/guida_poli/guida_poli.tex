@@ -1,0 +1,687 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[italian]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage[skip=6pt]{caption}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,angles,quotes,babel}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage[hidelinks]{hyperref}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+
+% Riquadri: si leggono anche stampati in bianco e nero
+\tcbset{base/.style={enhanced, breakable, boxrule=0.5pt, arc=1.5pt, left=7pt, right=7pt, top=5pt, bottom=5pt,
+  fonttitle=\bfseries\small, coltitle=black, before skip=8pt, after skip=8pt}}
+\newtcolorbox{teoria}[1]{base, colback=black!4, colframe=black!60, colbacktitle=black!14,
+  title={Richiamo di teoria --- #1}}
+\newtcolorbox{fisica}[1]{base, colback=white, colframe=black!60, colbacktitle=black!6,
+  borderline west={2.5pt}{0pt}{black!60}, title={Senso fisico --- #1}}
+\newtcolorbox{esercizio}[1]{base, colback=white, colframe=black!80, colbacktitle=white,
+  boxrule=0.8pt, title={Esercizio #1}}
+
+\newcommand{\dd}{\,\mathrm{d}}
+\newcommand{\rads}{\ \mathrm{rad/s}}
+
+\title{Dal modello lineare ai poli\\[0.3em]
+\large Guida passo passo alla taratura in hover, con esercizi da rifare a mano}
+\author{Giacomo Telloli\\[0.2em] \small Elective in Robotics --- confronto BS / DFL / GEO}
+\date{Novembre 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Come usare questa guida}
+
+La guida rifà, un passo alla volta, il ragionamento con cui sono stati scelti i poli del progetto: si parte dal modello del drone linearizzato in hover e si arriva ai guadagni dei controllori. Ogni passo ha tre parti:
+\begin{itemize}
+  \item un \textbf{richiamo di teoria}, con le definizioni e i risultati che servono;
+  \item l'\textbf{applicazione al drone}, con i numeri del progetto;
+  \item un \textbf{esercizio} da svolgere a mano, con le soluzioni in fondo (Appendice~\ref{app:soluzioni}).
+\end{itemize}
+In fondo c'è anche un formulario di una pagina (Appendice~\ref{app:formulario}).
+
+\paragraph{Numeri del progetto.} $g = 9.81\ \mathrm{m/s^2}$, costante di tempo dei motori $\tau_m = 20$~ms, passo di controllo $T_c = 5$~ms. I poli scelti sono:
+
+\begin{center}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Canale & Polinomio & Poli & $(\omega_n,\ \zeta)$ \\
+\midrule
+posizione $x, y$ & $s^2 + 2.5\,s + 2.5$ & $-1.25 \pm 0.97j$ & $(1.58,\ 0.79)$ \\
+quota $z$ & $s^2 + 5\,s + 7$ & $-2.5 \pm 0.87j$ & $(2.65,\ 0.945)$ \\
+assetto $\phi, \theta$ & $s^2 + 18\,s + 81$ & $-9$ doppio & $(9,\ 1)$ \\
+imbardata $\psi$ & $s^2 + 10\,s + 25$ & $-5$ doppio & $(5,\ 1)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Notazione.} Ogni canale del secondo ordine ha polinomio $s^2 + \beta s + \alpha$, con
+\[
+\beta = 2\zeta\omega_n, \qquad \alpha = \omega_n^2 .
+\]
+$\omega_n$ è la \emph{pulsazione naturale}, $\zeta$ (``zeta'') il \emph{coefficiente di smorzamento}. Molti testi italiani lo chiamano $\xi$ (``csi''): è la stessa grandezza. Si usa z verso l'alto. Le slide 09 del corso hanno z verso il basso: cambiano alcuni segni, non i poli.
+
+\paragraph{Il percorso.}
+modello non lineare $\to$ modello lineare (Passo 1) $\to$ catene di integratori (2) $\to$ significato di $\omega_n$ e $\zeta$ (3) $\to$ PD su un doppio integratore (4) $\to$ cascata posizione--assetto (5) $\to$ retroazione dello stato e unicità del guadagno (6) $\to$ vincolo del backstepping (7) $\to$ quanto veloci: motori, campionamento e margine di fase (8) $\to$ la scelta dei poli (9) $\to$ i guadagni dei quattro controllori (10).
+
+%======================================================================
+\section{Passo 1 --- Linearizzare il modello in hover}
+
+\begin{teoria}{linearizzazione attorno a un equilibrio}
+Dato un sistema $\dot x = f(x, u)$, un \textbf{equilibrio} è una coppia $(\bar x, \bar u)$ con $f(\bar x, \bar u) = 0$: lì il sistema resta fermo. Per piccole variazioni $\delta x = x - \bar x$, $\delta u = u - \bar u$, lo sviluppo di Taylor al primo ordine dà
+\[
+\delta\dot x \approx A\,\delta x + B\,\delta u, \qquad
+A = \left.\frac{\partial f}{\partial x}\right|_{(\bar x, \bar u)}, \quad
+B = \left.\frac{\partial f}{\partial u}\right|_{(\bar x, \bar u)} .
+\]
+Regole pratiche per angoli piccoli: $\sin a \approx a$, $\cos a \approx 1 - a^2/2 \approx 1$, e il prodotto di due quantità piccole si trascura (è del secondo ordine).
+
+Il modello lineare vale finché le variabili restano piccole. Nel gradino di 10~cm del progetto l'inclinazione massima è $0.79^\circ$: il drone resta in pieno regime lineare.
+\end{teoria}
+
+\paragraph{Il modello non lineare.} Con z verso l'alto e angoli ZYX $\eta = (\phi, \theta, \psi)$:
+\[
+m\ddot p = -mg\,e_3 + T\,R\,e_3, \qquad J\dot\omega = -\omega \times J\omega + \tau, \qquad \dot\eta = W(\eta)\,\omega ,
+\]
+dove la terza colonna di $R = R_z(\psi)R_y(\theta)R_x(\phi)$ è la direzione della spinta:
+\[
+R\,e_3 = \begin{pmatrix} \cos\psi\sin\theta\cos\phi + \sin\psi\sin\phi \\ \sin\psi\sin\theta\cos\phi - \cos\psi\sin\phi \\ \cos\theta\cos\phi \end{pmatrix}.
+\]
+
+\paragraph{L'equilibrio di hover.} $p = p_0$, $v = 0$, $\eta = 0$, $\omega = 0$, $T = mg$, $\tau = 0$. Si scrive $T = mg + \delta T$.
+
+\paragraph{Il risultato.}
+\[
+\boxed{\begin{aligned}
+&\ddot x = g\,\theta, &\qquad &\ddot y = -g\,\phi, &\qquad &\ddot z = \frac{\delta T}{m}, \\
+&\ddot\phi = \frac{\tau_\phi}{I_x}, & &\ddot\theta = \frac{\tau_\theta}{I_y}, & &\ddot\psi = \frac{\tau_\psi}{I_z}
+\end{aligned}}
+\]
+I sei assi sono \textbf{disaccoppiati}: ognuno si può tarare da solo.
+
+\paragraph{Il legame con il modello semplificato delle slide 09.} La slide 2 (``simplified model for PID control design'') trascura aerodinamica ed effetti giroscopici e assume angoli piccoli, quindi $(\dot\phi, \dot\theta, \dot\psi) \approx (p, q, r)$. La rotazione diventa tre doppi integratori, $\ddot\phi = \tau_\phi/I_x$ e così via; la traslazione invece resta non lineare, con $T$, seni e coseni. Linearizzando anche la traslazione attorno all'hover si ottengono le stesse equazioni scritte sopra. È il modello che il PD della slide 4 inverte (Passo 4).
+
+\paragraph{Ingressi normalizzati.} Conviene scrivere gli ingressi come accelerazioni:
+\[
+u_z = \frac{\delta T}{m}, \qquad u_\phi = \frac{\tau_\phi}{I_x}, \qquad u_\theta = \frac{\tau_\theta}{I_y}, \qquad u_\psi = \frac{\tau_\psi}{I_z}.
+\]
+Massa e inerzia spariscono dal modello: se il controllore le conosce, i poli non dipendono dal carico.
+
+\begin{esercizio}{1}
+\begin{enumerate}[label=(\alph*)]
+  \item Scrivi $R\,e_3$ con $\psi = 0$ e sviluppala al primo ordine in $\phi, \theta$.
+  \item Ricava $\ddot x$, $\ddot y$, $\ddot z$ e mostra perché il termine $\delta T\,\theta$ si trascura.
+  \item Mostra che $\omega \times J\omega$ e $W(\eta) - I$ non contribuiscono al primo ordine.
+  \item Linearizza l'equazione di $\ddot x$ della slide 2 delle slide 09 (z verso il basso). Che segno trovi, e perché i poli non cambiano?
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 2 --- Funzioni di trasferimento: integratori e catene}
+
+\begin{teoria}{trasformata di Laplace, funzione di trasferimento, poli}
+Con condizioni iniziali nulle la derivata diventa una moltiplicazione per $s$: $\mathcal{L}\{\dot y\} = sY(s)$, $\mathcal{L}\{\ddot y\} = s^2 Y(s)$. Un sistema lineare con ingresso $u$ e uscita $y$ ha \textbf{funzione di trasferimento}
+\[
+G(s) = \frac{Y(s)}{U(s)} = \frac{N(s)}{D(s)} .
+\]
+I \textbf{poli} sono le radici di $D(s)$. Ogni polo $p$ porta nella risposta un \emph{modo} $e^{pt}$:
+\begin{itemize}
+  \item $\mathrm{Re}(p) < 0$: il modo si spegne; il sistema è asintoticamente stabile se tutti i poli sono così;
+  \item $p = 0$: un \textbf{integratore}, $1/s$; con un ingresso costante l'uscita cresce come $t$;
+  \item $p = 0$ doppio: un doppio integratore, $1/s^2$; con un ingresso costante l'uscita cresce come $t^2/2$, senza limite.
+\end{itemize}
+\end{teoria}
+
+\paragraph{Applicazione.} Con gli ingressi normalizzati:
+\[
+\frac{Z(s)}{U_z(s)} = \frac{1}{s^2}, \qquad \frac{\Theta(s)}{U_\theta(s)} = \frac{1}{s^2}, \qquad \frac{X(s)}{\Theta(s)} = \frac{g}{s^2}
+\quad\Rightarrow\quad \frac{X(s)}{U_\theta(s)} = \frac{g}{s^4}.
+\]
+Quota e imbardata sono doppi integratori. Ogni asse laterale è una \textbf{catena di quattro integratori}: $u_\theta \to \dot\theta \to \theta \to \dot x \to x$, con un solo ingresso.
+
+\begin{fisica}{il drone in hover non torna da solo}
+Un drone in hover è come una massa sul ghiaccio: non c'è nessuna molla che lo riporti al suo posto e nessun attrito che lo rallenti. Tutti i poli sono in zero. Il controllore deve creare artificialmente sia la \emph{molla} sia lo \emph{smorzatore}: è quello che fanno i due guadagni di ogni canale (Passo 4).
+\end{fisica}
+
+\begin{esercizio}{2}
+\begin{enumerate}[label=(\alph*)]
+  \item Scrivi la funzione di trasferimento da $\tau_\theta$ (in N\,m) a $x$.
+  \item Il drone resta inclinato di $1^\circ$ per 1~s, partendo da fermo. Di quanto si sposta?
+  \item La spinta è l'1\% più alta del peso per 2~s. Di quanto sale il drone?
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 3 --- Il secondo ordine: che cosa sono $\omega_n$ e $\zeta$}
+
+\begin{teoria}{massa, molla, smorzatore}
+Una massa $m$ attaccata a una molla di rigidezza $k$ e a uno smorzatore di coefficiente $c$:
+\[
+m\ddot y + c\,\dot y + k\,y = 0 \quad\Rightarrow\quad s^2 + \frac{c}{m}\,s + \frac{k}{m} = 0 .
+\]
+Confrontando con $s^2 + 2\zeta\omega_n s + \omega_n^2$:
+\[
+\omega_n = \sqrt{\frac{k}{m}}, \qquad \zeta = \frac{c}{2\sqrt{km}} = \frac{c}{c_{cr}}, \qquad c_{cr} = 2\sqrt{km}.
+\]
+$c_{cr}$ è lo smorzamento \emph{critico}: il più piccolo che non fa oscillare. I poli sono
+\[
+s_{1,2} = -\zeta\omega_n \pm j\,\omega_n\sqrt{1 - \zeta^2} = -\sigma \pm j\,\omega_d .
+\]
+\begin{itemize}
+  \item $0 < \zeta < 1$, \emph{sottosmorzato}: poli complessi coniugati, la risposta oscilla mentre si spegne;
+  \item $\zeta = 1$, \emph{smorzamento critico}: polo reale doppio in $-\omega_n$, la risposta più rapida senza sovraelongazione;
+  \item $\zeta > 1$, \emph{sovrasmorzato}: due poli reali distinti, la risposta è lenta e senza oscillazioni.
+\end{itemize}
+\textbf{Risposta al gradino} ($0 < \zeta < 1$):
+\[
+y(t) = 1 - e^{-\sigma t}\left(\cos\omega_d t + \frac{\zeta}{\sqrt{1-\zeta^2}}\sin\omega_d t\right), \qquad
+\text{per } \zeta = 1:\ \ y(t) = 1 - (1 + \omega_n t)\,e^{-\omega_n t}.
+\]
+\textbf{Specifiche nel tempo}:
+\[
+M_p = e^{-\pi\zeta/\sqrt{1-\zeta^2}}, \qquad t_p = \frac{\pi}{\omega_d}, \qquad t_s(5\%) \approx \frac{3}{\zeta\omega_n}, \qquad t_s(2\%) \approx \frac{4}{\zeta\omega_n}.
+\]
+Le stime di $t_s$ vengono dall'inviluppo $e^{-\sigma t}$ e sono buone per $\zeta \lesssim 0.7$. Per $\zeta$ vicino a 1 si usa la tabella:
+
+\begin{center}
+\small
+\begin{tabular}{@{}lccccccc@{}}
+\toprule
+$\zeta$ & 0.3 & 0.5 & 0.7 & 0.79 & 0.9 & 0.945 & 1 \\
+\midrule
+sovraelongazione $M_p$ & 37.2\% & 16.3\% & 4.6\% & 1.7\% & 0.15\% & 0.01\% & 0 \\
+$\omega_n\, t_s$ al 5\% & 10.1 & 5.29 & 2.90 & 3.33 & 4.01 & 4.34 & 4.74 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Il minimo vicino a $\zeta = 0.7$ c'è perché lì la prima sovraelongazione resta appena dentro la banda del 5\%.
+\end{teoria}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[scale=1.15, >=Stealth]
+  \draw[->] (-3.4,0) -- (0.9,0) node[below] {$\mathrm{Re}$};
+  \draw[->] (0,-2.3) -- (0,2.4) node[left] {$\mathrm{Im}$};
+  \coordinate (O) at (0,0);
+  \coordinate (P) at (-2.0,1.6);
+  \coordinate (Q) at (-2.0,-1.6);
+  \coordinate (N) at (-1,0);
+  \draw[dashed, gray] (O) circle (2.561);
+  \draw[thick] (O) -- (P) node[midway, above right, xshift=-2pt] {$\omega_n$};
+  \draw[dashed] (P) -- (-2.0,0) node[below] {$-\sigma = -\zeta\omega_n$};
+  \draw[dashed] (P) -- (0,1.6) node[right] {$\omega_d = \omega_n\sqrt{1-\zeta^2}$};
+  \pic[draw, "$\gamma$", angle eccentricity=1.45, angle radius=0.55cm] {angle = P--O--N};
+  \fill (P) circle (2.2pt) node[above left] {$s_1$};
+  \fill (Q) circle (2.2pt) node[below left] {$s_2$};
+  \node[align=left, font=\small] at (2.6,-1.3) {$\cos\gamma = \zeta$\\[2pt] cerchio: stesso $\omega_n$\\ raggio: stesso $\zeta$};
+\end{tikzpicture}
+\caption{Dove stanno i poli di un secondo ordine. La distanza dall'origine è $\omega_n$; l'angolo con il semiasse reale negativo dice lo smorzamento, $\cos\gamma = \zeta$. La parte reale $\sigma$ fissa quanto in fretta si spegne la risposta, la parte immaginaria $\omega_d$ la frequenza dell'oscillazione residua.}
+\label{fig:poli}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}
+\begin{axis}[width=0.86\textwidth, height=6.2cm, xmin=0, xmax=12, ymin=0, ymax=1.45,
+  xlabel={$\omega_n t$}, ylabel={$y(t)$}, grid=major, grid style={gray!25},
+  legend pos=south east, legend cell align=left, legend style={font=\small}, samples=220, domain=0:12]
+  \addplot[black, thick] {1 - exp(-0.3*x)*(cos(deg(sqrt(1-0.09)*x)) + 0.3/sqrt(1-0.09)*sin(deg(sqrt(1-0.09)*x)))};
+  \addlegendentry{$\zeta = 0.3$}
+  \addplot[black, thick, dashed] {1 - exp(-0.5*x)*(cos(deg(sqrt(1-0.25)*x)) + 0.5/sqrt(1-0.25)*sin(deg(sqrt(1-0.25)*x)))};
+  \addlegendentry{$\zeta = 0.5$}
+  \addplot[black, very thick, dotted] {1 - exp(-0.79*x)*(cos(deg(sqrt(1-0.6241)*x)) + 0.79/sqrt(1-0.6241)*sin(deg(sqrt(1-0.6241)*x)))};
+  \addlegendentry{$\zeta = 0.79$ (posizione)}
+  \addplot[black!55, thick] {1 - (1 + x)*exp(-x)};
+  \addlegendentry{$\zeta = 1$ (assetto, yaw)}
+  \addplot[gray, thin, dashed, forget plot] {1.05};
+  \addplot[gray, thin, dashed, forget plot] {0.95};
+\end{axis}
+\end{tikzpicture}
+\caption{Risposta al gradino del secondo ordine in funzione di $\omega_n t$: le curve dipendono solo da $\zeta$. Le linee tratteggiate grigie sono la banda del 5\%.}
+\label{fig:gradini}
+\end{figure}
+
+\begin{fisica}{$\omega_n$ è la velocità, $\zeta$ è la forma}
+\begin{itemize}
+  \item \textbf{$\omega_n$} [rad/s] dice \emph{quanto è rigida la molla rispetto alla massa}, cioè quanto è veloce il sistema. Il tempo caratteristico è $1/\omega_n$: con $\omega_n$ doppia tutta la risposta avviene in metà tempo, con la stessa forma.
+  \item \textbf{$\zeta$} (adimensionale) dice \emph{quanto è viscoso lo smorzatore rispetto a quello critico}, cioè la \emph{forma} della risposta: quanta sovraelongazione e quante oscillazioni. Non cambia se si accelera o si rallenta il tempo.
+  \item \textbf{$\sigma = \zeta\omega_n$} è la rapidità con cui si spegne l'inviluppo: costante di tempo $1/\sigma$.
+  \item \textbf{$\omega_d$} è la frequenza dell'oscillazione che resta.
+\end{itemize}
+Per il drone: l'assetto con $\omega_n = 9$ e $\zeta = 1$ si assesta in circa mezzo secondo, senza sovraelongazione. La posizione con $\omega_n = 1.58$ e $\zeta = 0.79$ ci mette circa 2~s, con un $1.7\%$ di sovraelongazione.
+\end{fisica}
+
+\begin{esercizio}{3}
+\begin{enumerate}[label=(\alph*)]
+  \item Per $s^2 + 2.5\,s + 2.5$ calcola $\omega_n$, $\zeta$, i poli, $\sigma$, $\omega_d$, $M_p$ e $t_s$ al 5\% (con la stima e con la tabella).
+  \item Rifai il conto per quota ($s^2 + 5s + 7$), assetto ($s^2 + 18s + 81$) e imbardata ($s^2 + 10s + 25$).
+  \item Con la stessa $\omega_n$ della posizione ma $\zeta = 0.5$: quanto vale $\beta$ e quanta sovraelongazione avresti su un gradino di 10~cm?
+  \item Sostituisci $\tau = \omega_n t$ nella risposta al gradino e mostra che la forma dipende solo da $\zeta$.
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 4 --- Piazzare i poli di un doppio integratore: il PD}
+
+\begin{teoria}{assegnamento dei poli}
+\textbf{Piazzare i poli} vuol dire: scegliere i poli desiderati, scrivere il polinomio che li ha come radici e uguagliarne i coefficienti a quelli del polinomio caratteristico in anello chiuso, che dipendono dai guadagni.
+
+Per un doppio integratore $\ddot y = u$ con riferimento $y_d(t)$, errore $e = y_d - y$ e legge
+\[
+u = \ddot y_d + K_d\,\dot e + K_p\,e ,
+\]
+l'errore obbedisce a $\ddot e + K_d\,\dot e + K_p\,e = 0$, quindi il polinomio è $s^2 + K_d s + K_p$ e
+\[
+\boxed{\ K_p = \alpha = \omega_n^2, \qquad K_d = \beta = 2\zeta\omega_n\ }
+\]
+Il termine $\ddot y_d$ (\emph{feedforward}) serve all'inseguimento: senza, l'errore avrebbe una forzante $\ddot y_d$. Un polinomio di secondo grado ha entrambe le radici nel semipiano sinistro se e solo se i coefficienti sono positivi (criterio di Routh).
+\end{teoria}
+
+\begin{fisica}{il PD è una molla e uno smorzatore virtuali}
+$K_p$ è una molla che tira verso il riferimento, $K_d$ uno smorzatore sulla velocità d'errore. Con gli ingressi normalizzati sono ``per unità di massa'': la rigidezza fisica della molla di quota è $m K_p$ [N/m], quella dell'assetto $I K_p$ [N\,m/rad]. Scegliere $\omega_n$ vuol dire scegliere la rigidezza, scegliere $\zeta$ lo smorzamento rispetto a quello critico.
+\end{fisica}
+
+\paragraph{Applicazione: quota.} $\ddot z = u_z$ con $u_z = \ddot z_d + K_{zd}\,\dot e_z + K_{zp}\,e_z$, cioè
+\[
+T = m\,(g + \ddot z_d + K_{zd}\,\dot e_z + K_{zp}\,e_z).
+\]
+Con $\omega_n = \sqrt 7 = 2.65$ e $\zeta = 0.945$: $K_{zp} = 7$, $K_{zd} = 5$. Il PD della slide 4 delle slide 09 è la stessa legge divisa per $\cos\theta\cos\phi$: è l'inversione del modello semplificato, che in hover vale 1.
+
+\paragraph{Applicazione: imbardata.} $\ddot\psi = u_\psi$, con $\omega_n = 5$ e $\zeta = 1$: $K_{\psi p} = 25$, $K_{\psi d} = 10$, cioè in coppia $\tau_\psi = I_z(25\,e_\psi + 10\,\dot e_\psi)$. Nelle slide 09 i guadagni d'assetto contengono già l'inerzia.
+
+\begin{esercizio}{4}
+\begin{enumerate}[label=(\alph*)]
+  \item Ricava $K_{zp}, K_{zd}$ e $K_{\psi p}, K_{\psi d}$ dai poli. Per $m = 1$~kg, quanto vale la rigidezza fisica della molla di quota?
+  \item Quota con la stessa $\omega_n$ ma $\zeta = 0.7$: quanto vale $K_{zd}$? Quanta sovraelongazione?
+  \item \textbf{Massa sbagliata.} Il controllore calcola $T = m_{nom}(g + u_z)$, ma la massa vera è $m = 1.5\,m_{nom}$. A regime ($\ddot e = \dot e = 0$), quanto vale l'errore di quota? Interpretalo con la legge di Hooke.
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 5 --- La catena di quattro integratori: la cascata}
+
+\begin{teoria}{controllo in cascata e separazione delle scale temporali}
+Quando un'uscita si raggiunge solo attraverso una variabile intermedia, si chiudono due anelli: un anello \textbf{interno} che porta la variabile intermedia al valore richiesto e un anello \textbf{esterno} che lo calcola. Se l'interno è molto più veloce dell'esterno (di solito $5$--$10$ volte in $\omega_n$), l'esterno vede la variabile intermedia già uguale al valore richiesto, e i due anelli si tarano separatamente.
+
+\textbf{Sistemi triangolari a blocchi.} Se la matrice di un sistema è $\begin{pmatrix} A_{11} & A_{12} \\ 0 & A_{22} \end{pmatrix}$, i suoi autovalori sono quelli di $A_{11}$ più quelli di $A_{22}$: il secondo blocco forza il primo, ma non ne cambia i poli.
+\end{teoria}
+
+\begin{figure}[h]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Stealth, node distance=0.55cm, font=\small,
+  blk/.style={draw, thick, minimum height=0.9cm, minimum width=1.2cm, align=center},
+  sum/.style={draw, circle, inner sep=1.6pt}]
+  \node (xd) {$x_d$};
+  \node[sum, right=of xd] (s1) {};
+  \node[blk, right=of s1] (Cp) {PD posizione\\$\beta_p s + \alpha_p$};
+  \node[blk, right=of Cp] (k) {$1/g$};
+  \node[sum, right=0.9cm of k] (s2) {};
+  \node[blk, right=of s2] (Ca) {PD assetto\\$\beta_a s + \alpha_a$};
+  \node[blk, right=of Ca] (M) {motore\\[2pt]$\dfrac{1}{\tau_m s + 1}$};
+  \node[blk, right=of M] (Pa) {$\dfrac{1}{s^2}$};
+  \node[blk, right=0.9cm of Pa] (Pp) {$\dfrac{g}{s^2}$};
+  \node[right=of Pp] (x) {$x$};
+  \draw[->] (xd) -- (s1);
+  \draw[->] (s1) -- node[above] {$e_x$} (Cp);
+  \draw[->] (Cp) -- node[above] {$u_x$} (k);
+  \draw[->] (k) -- node[above] {$\theta_d$} (s2);
+  \draw[->] (s2) -- (Ca);
+  \draw[->] (Ca) -- node[above] {$u_\theta$} (M);
+  \draw[->] (M) -- (Pa);
+  \draw[->] (Pa) -- node[above] (th) {$\theta$} (Pp);
+  \draw[->] (Pp) -- (x);
+  \draw[->] ($(Pa.east)!0.5!(Pp.west)$) -- ++(0,-1.0) -| node[pos=0.95, left] {$-$} (s2);
+  \draw[->] ($(Pp.east)!0.5!(x.west)$) -- ++(0,-1.6) -| node[pos=0.97, left] {$-$} (s1);
+  \draw[dashed, gray] ($(s2.west)+(-0.25,0.9)$) rectangle ($(Pa.east)+(0.25,-1.25)$);
+  \node[gray, font=\footnotesize] at ($(Ca.north)+(0.9,0.72)$) {anello interno (assetto)};
+\end{tikzpicture}}
+\caption{L'asse x come cascata: l'anello esterno chiede un'inclinazione $\theta_d = u_x/g$, quello interno la realizza. Il motore non lo conosce nessun controllore: entra solo nei margini (Passo 8).}
+\label{fig:cascata}
+\end{figure}
+
+\paragraph{Le due leggi.} Esterna: $u_x = \ddot x_d + \beta_p\,\dot e_x + \alpha_p\,e_x$ e $\theta_d = u_x/g$, perché $\ddot x = g\theta$. Interna, con $e_\theta = \theta_d - \theta$:
+\[
+u_\theta = \ddot\theta_d + \beta_a\,(\dot\theta_d - \dot\theta) + \alpha_a\,(\theta_d - \theta).
+\]
+Tutto dipende da come si trattano $\dot\theta_d$ e $\ddot\theta_d$.
+
+\paragraph{Caso A, derivate esatte.} L'errore d'assetto evolve da solo, $\ddot e_\theta + \beta_a\dot e_\theta + \alpha_a e_\theta = 0$, e la posizione ne è solo forzata. Il sistema è triangolare, quindi
+\[
+p_A(s) = (s^2 + \beta_p s + \alpha_p)(s^2 + \beta_a s + \alpha_a):
+\]
+i poli sono esattamente quelli scelti per i due anelli.
+
+\paragraph{Caso B, derivate nulle.} Con $\dot\theta_d = \ddot\theta_d = 0$ il termine $-\beta_a\dot\theta$ frena anche la rotazione che la posizione sta chiedendo, e il polinomio diventa
+\[
+p_B(s) = s^4 + \beta_a s^3 + \alpha_a s^2 + \alpha_a\beta_p\, s + \alpha_a\alpha_p .
+\]
+
+\begin{fisica}{che cosa vuol dire ``l'assetto insegue in ritardo''}
+Con le derivate nulle l'anello d'assetto tratta $\theta_d$ come se fosse fermo, mentre l'anello di posizione lo sta cambiando. L'inclinazione arriva in ritardo, e un ritardo dentro un anello toglie smorzamento: la coppia dominante passa da $(\omega_n, \zeta) = (1.58,\ 0.79)$ a $(2.89,\ 0.57)$, e la risposta al gradino di 10~cm si sposta di 19~mm. La separazione delle scale (qui un fattore $9/1.58 \approx 5.7$) da sola non basta. La derivata filtrata del progetto ($\tau_f = 20$~ms) riporta quasi al caso A: 0.4~mm di differenza.
+\end{fisica}
+
+\begin{esercizio}{5}
+\begin{enumerate}[label=(\alph*)]
+  \item Ricava $p_A(s)$: scrivi le equazioni di $e_\theta$ e di $x$ (regolazione, $x_d = 0$) e riconosci la struttura triangolare.
+  \item Ricava $p_B(s)$ in Laplace, usando $\Theta = s^2 X/g$ e $\Theta_d = -(\beta_p s + \alpha_p)X/g$.
+  \item Scrivi $p_A$ e $p_B$ con i numeri del progetto e confronta i coefficienti. Quali termini mancano in $p_B$?
+  \item Le radici di $p_B$ sono $-12.82$, $-1.90$ e $-1.64 \pm 2.37j$. Calcola $\omega_n$ e $\zeta$ della coppia complessa.
+  \item Per quale condizione sui guadagni il termine mancante più grande, $\beta_a\beta_p$, sarebbe trascurabile rispetto ad $\alpha_a$? È soddisfatta?
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 6 --- Retroazione dello stato: perché stessi poli vuol dire stessa legge}
+
+\begin{teoria}{retroazione dello stato, controllabilità, formula di Ackermann}
+Per $\dot x = Ax + Bu$ con $x \in \mathbb{R}^n$, la retroazione $u = -Kx$ dà $\dot x = (A - BK)x$: i poli in anello chiuso sono gli autovalori di $A - BK$, cioè le radici di $\det(sI - A + BK)$.
+\begin{itemize}
+  \item Il sistema è \textbf{controllabile} se la matrice $\mathcal{C} = [B\ \ AB\ \ A^2B\ \cdots\ A^{n-1}B]$ ha rango $n$.
+  \item \textbf{Teorema}: se è controllabile, i poli si possono mettere dove si vuole. Se c'è \textbf{un solo ingresso}, per ogni polinomio desiderato $p_d(s)$ esiste \textbf{un solo} $K$ (formula di Ackermann):
+  \[
+  K = \begin{pmatrix} 0 & \cdots & 0 & 1 \end{pmatrix}\mathcal{C}^{-1}\, p_d(A).
+  \]
+\end{itemize}
+\end{teoria}
+
+\paragraph{Applicazione: l'asse x.} Stato $(x, \dot x, \theta, \dot\theta)$, ingresso $u_\theta$:
+\[
+A = \begin{pmatrix} 0&1&0&0 \\ 0&0&g&0 \\ 0&0&0&1 \\ 0&0&0&0 \end{pmatrix}, \qquad
+B = \begin{pmatrix} 0\\0\\0\\1 \end{pmatrix}.
+\]
+Il modo più semplice per trovare $K$ evita Ackermann. Nelle coordinate $(x, \dot x, \ddot x, \dddot x) = (x, \dot x, g\theta, g\dot\theta)$ il sistema è la catena $x^{(4)} = g\,u_\theta$. Con
+\[
+u_\theta = -\frac{1}{g}\left(c_0 x + c_1\dot x + c_2\ddot x + c_3\dddot x\right)
+\]
+il polinomio è $s^4 + c_3 s^3 + c_2 s^2 + c_1 s + c_0$, e tornando a $(x, \dot x, \theta, \dot\theta)$:
+\[
+K = \left(\frac{c_0}{g},\ \frac{c_1}{g},\ c_2,\ c_3\right).
+\]
+
+\paragraph{Conseguenza.} Il DFL sull'asse x impone proprio $x^{(4)} = v$ con $v = -\sum c_i\,x^{(i)}$. Il BS con derivate esatte (caso A), il GEO e il PD della slide 4, linearizzati e con le derivate di $\theta_d$ trattate allo stesso modo, danno un polinomio dello stesso grado. Se i polinomi coincidono, per l'unicità coincidono i $K$: \textbf{su x, y e $\psi$, in hover, i controllori tarati con gli stessi poli sono la stessa legge}. Su z no: il DFL ha due stati in più, il compensatore $(T, \dot T)$ (Passo 10).
+
+\begin{esercizio}{6}
+\begin{enumerate}[label=(\alph*)]
+  \item Calcola $\mathcal{C}$ per l'asse x e verifica che ha rango 4.
+  \item Calcola $K$ per $p_A(s)$ del Passo 5 con i numeri del progetto.
+  \item Sviluppa la legge del caso A: esprimi $\dot\theta_d$ e $\ddot\theta_d$ con il modello ($\ddot x = g\theta$) e ricava i quattro guadagni. Coincidono con (b)?
+  \item Che $K$ corrisponde al caso B? Dove differisce da quello del caso A?
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 7 --- Dai poli ai guadagni del backstepping, e il suo vincolo}
+
+\begin{teoria}{il backstepping su un doppio integratore}
+Per $\ddot y = u$ si definiscono l'errore $e_1 = y_d - y$ e il secondo errore $e_2 = \dot e_1 + k_1 e_1$ (lo scarto dalla velocità ``virtuale'' che farebbe convergere $e_1$). Con $V = \tfrac12(e_1^2 + e_2^2)$ e la legge
+\[
+u = \ddot y_d + e_1 + k_1\,\dot e_1 + k_2\,e_2
+\]
+si ottiene $\dot e_1 = -k_1 e_1 + e_2$, $\dot e_2 = -e_1 - k_2 e_2$ e $\dot V = -k_1 e_1^2 - k_2 e_2^2 \le 0$. Il termine $+e_1$ nella legge serve a cancellare il termine incrociato in $\dot V$. Il polinomio in anello chiuso è
+\[
+(s + k_1)(s + k_2) + 1 = s^2 + (k_1 + k_2)\,s + (1 + k_1 k_2).
+\]
+\textbf{Relazioni di Viète}: due numeri con somma $S$ e prodotto $P$ sono le radici di $k^2 - Sk + P = 0$.
+\end{teoria}
+
+\paragraph{Dai poli a $(k_1, k_2)$.} Da $k_1 + k_2 = \beta$ e $k_1 k_2 = \alpha - 1$:
+\[
+k_{1,2} = \frac{\beta \pm \sqrt{\beta^2 - 4(\alpha - 1)}}{2}.
+\]
+Sono reali e positivi se e solo se $\alpha > 1$ e $\beta^2 \ge 4(\alpha - 1)$, cioè
+\[
+\boxed{\ \omega_n > 1 \rads, \qquad \zeta \ge \zeta_{min} = \sqrt{1 - 1/\omega_n^2}\ }
+\]
+
+\begin{fisica}{che cosa vieta il vincolo}
+Il ``$+1$'' del backstepping è una molla in più, che non si può togliere. Per avere $k$ reali i poli devono essere abbastanza smorzati, e la loro parte immaginaria resta sempre $\omega_d \le 1$~rad/s: il BS non può fare oscillazioni smorzate veloci. DFL e GEO non hanno questo vincolo, quindi i poli comuni vanno scelti dove ci arriva anche il BS. Per l'assetto con $\omega_n = 9$ serve $\zeta \ge 0.994$: in pratica $\zeta = 1$.
+\end{fisica}
+
+\begin{esercizio}{7}
+\begin{enumerate}[label=(\alph*)]
+  \item Dalla legge del riquadro, ricava le equazioni di $\dot e_1$, $\dot e_2$, il polinomio e $\dot V$. Riscrivi la legge in funzione di $e_1, \dot e_1$ e confrontala con la slide 5 delle slide 09.
+  \item Calcola $(k_1, k_2)$ per i quattro canali del progetto.
+  \item Verifica il vincolo $\zeta \ge \zeta_{min}$ per ogni canale.
+  \item Dimostra che $\omega_d \le 1$~rad/s.
+  \item Con i poli di posizione più veloci del 30\% ($\omega_n = 2.06$), $\zeta = 0.79$ è ancora ammesso? Che guadagni dai?
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 8 --- Quanto veloci: motore, campionamento e margine di fase}
+
+Nel modello dei Passi 1--7 i poli si potrebbero rendere veloci quanto si vuole. Il limite viene da quello che il modello non contiene: il \textbf{motore} e il \textbf{campionamento}, che ritardano il comando.
+
+\begin{teoria}{funzione d'anello, margine di fase, ritardi}
+Si apre l'anello in un punto e si calcola la \textbf{funzione d'anello} $L(s)$, il prodotto di tutto ciò che il segnale attraversa. La \textbf{pulsazione di attraversamento} $\omega_c$ è quella con $|L(j\omega_c)| = 1$, e il \textbf{margine di fase} è
+\[
+\mathrm{PM} = 180^\circ + \angle L(j\omega_c).
+\]
+È la fase che si può ancora perdere prima che l'anello diventi instabile. Contributi di fase utili:
+\begin{itemize}
+  \item un polo $\dfrac{1}{\tau s + 1}$: fase $-\arctan(\omega\tau)$, modulo $1/\sqrt{1 + \omega^2\tau^2}$;
+  \item un ritardo $e^{-sT}$: fase $-\omega T$ (in radianti), modulo 1; il campionamento con passo $T_c$ equivale circa a un ritardo $T_c/2$;
+  \item un doppio integratore $1/s^2$: fase $-180^\circ$.
+\end{itemize}
+\textbf{Margine di ritardo}: il ritardo in più che l'anello tollera è $\mathrm{PM}/\omega_c$ (PM in radianti). Più margine vuol dire anche più smorzamento: per un anello del secondo ordine standard vale, a grandi linee, $\mathrm{PM} \approx 100\,\zeta$ (in gradi) per $\zeta \lesssim 0.7$.
+\end{teoria}
+
+\paragraph{Applicazione: l'anello d'assetto.} Aperto all'attuatore:
+\[
+L(s) = \frac{\beta_a s + \alpha_a}{s^2}\cdot\frac{1}{\tau_m s + 1}\cdot e^{-sT_c/2}.
+\]
+Il conto a mano si fa in tre passi:
+\begin{enumerate}
+  \item si trova $\omega_c$ dell'anello ideale, senza motore né ritardo: $|\beta_a j\omega + \alpha_a| = \omega^2$, cioè $\omega^4 - \beta_a^2\omega^2 - \alpha_a^2 = 0$, un'equazione di secondo grado in $\omega^2$;
+  \item la fase ideale a $\omega_c$ è $-180^\circ + \arctan(\beta_a\omega_c/\alpha_a)$;
+  \item si sottraggono la fase del motore, $\arctan(\omega_c\tau_m)$, e quella del ritardo, $\omega_c T_c/2$.
+\end{enumerate}
+Il passo 1 trascura il modulo del motore, che abbassa un po' $\omega_c$: il risultato è leggermente pessimista.
+
+\begin{fisica}{perché $\omega_n$ ha un massimo e $\zeta$ no}
+Con $\zeta$ fissato, l'anello ideale ha sempre la stessa forma: $\omega_c$ è proporzionale a $\omega_n$ (per $\zeta = 1$, $\omega_c = 2.06\,\omega_n$) e la fase ideale all'attraversamento non cambia ($76.3^\circ$ per $\zeta = 1$). La fase tolta da motore e campionamento invece cresce con $\omega_c$. Quindi $\zeta$ decide quanta fase c'è da spendere, e $\tau_m$ e $T_c$ decidono fino a che velocità $\omega_n$ la si può spendere. Con motori più lenti (scenario C) il margine cala: è la previsione del progetto per lo scenario C.
+\end{fisica}
+
+\begin{esercizio}{8}
+\begin{enumerate}[label=(\alph*)]
+  \item Calcola a mano il margine di fase dell'anello d'assetto con $\omega_n = 9$, $\zeta = 1$ (i tre passi qui sopra).
+  \item Rifallo con $\omega_n = 12$. La specifica PM $\ge 50^\circ$ è rispettata?
+  \item Mostra che, con $\zeta$ fissato, $\omega_c/\omega_n$ e la fase ideale non dipendono da $\omega_n$ (sostituisci $\omega = \omega_n\Omega$). Trova poi per tentativi la $\omega_n$ massima con PM $\ge 50^\circ$.
+  \item Calcola il margine di ritardo con PM $= 53.8^\circ$ e $\omega_c = 17.5$~rad/s.
+  \item Con $\tau_m = 40$~ms e $\omega_n = 9$, che margine stimi?
+\end{enumerate}
+\end{esercizio}
+
+%======================================================================
+\section{Passo 9 --- La scelta dei poli, in ordine}
+
+Mettendo insieme i passi precedenti, la scelta procede dal canale più veloce al più lento.
+
+\begin{enumerate}
+  \item \textbf{Assetto}. È l'anello più veloce, quindi il più esposto a motore e campionamento. Il vincolo del BS impone $\zeta \approx 1$ (Passo 7); la specifica PM $\ge 50^\circ$ ammette $\omega_n \le 10.8$ (Passo 8). Si prende $\omega_n = 9$, con un po' di margine: polo doppio in $-9$, BS $k = (8, 10)$, PM $= 53.8^\circ$.
+  \item \textbf{Posizione x, y}. Sta fuori dall'anello d'assetto, quindi va $5$--$6$ volte più lenta (Passo 5): $\omega_n \approx 1.6$. Lo smorzamento deve stare sopra $\zeta_{min} = 0.775$: con $\zeta = 0.79$ la sovraelongazione è dell'1.7\%. Poli $-1.25 \pm 0.97j$, BS $k = (1, 1.5)$.
+  \item \textbf{Quota}. La spinta agisce direttamente, senza passare dall'assetto, quindi può essere più veloce della posizione: $\omega_n = 2.65$ con $\zeta = 0.945$ ($\zeta_{min} = 0.926$). BS $k = (2, 3)$, PM $= 68^\circ$.
+  \item \textbf{Imbardata}. La coppia di imbardata viene dalla resistenza delle eliche ed è molto più debole delle coppie di rollio e beccheggio, quindi si tiene più lenta dell'assetto: polo doppio in $-5$, BS $k = (4, 6)$.
+  \item \textbf{Verifica dell'insieme}. Sull'asse x completo, aperto all'attuatore, il margine scende a $43^\circ$: la specifica, se vale lì, non è rispettata (vedi il rapporto \emph{Analisi lineare in hover}). Nel gradino di 10~cm l'inclinazione massima è $0.79^\circ$, quindi il modello lineare vale.
+\end{enumerate}
+
+\begin{esercizio}{9}
+Rifai la scelta con una specifica più severa, PM $\ge 60^\circ$ sull'anello d'assetto. Trova per tentativi la nuova $\omega_n$ d'assetto, i guadagni del BS e una $\omega_n$ di posizione coerente con un rapporto di circa 5.7, tenendo $\zeta = 0.79$. Verifica il vincolo del BS.
+\end{esercizio}
+
+%======================================================================
+\section{Passo 10 --- Dai poli ai guadagni dei quattro controllori}
+
+Una volta fissati i poli, ogni controllore li traduce nei suoi parametri. \textbf{L'invariante sono i poli, non i guadagni.}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}lL@{}}
+\toprule
+Controllore & Dai poli ai guadagni \\
+\midrule
+PD (slide 09) & $K_p = \alpha$, $K_d = \beta$; sull'assetto moltiplicati per l'inerzia: $K_p = I\alpha$, $K_d = I\beta$ \\
+BS & $k_1 + k_2 = \beta$, $1 + k_1 k_2 = \alpha$ per ogni canale (Passo 7) \\
+DFL & x, y: coefficienti $c_3, \dots, c_0$ di $(s^2 + \beta_p s + \alpha_p)(s^2 + \beta_a s + \alpha_a)$; z: stesso prodotto con una coppia di poli in più da scegliere; $\psi$: $(c_1, c_0) = (\beta, \alpha)$ \\
+GEO & $K_x = m\,\mathrm{diag}(\alpha_x, \alpha_y, \alpha_z)$, $K_v = m\,\mathrm{diag}(\beta_x, \beta_y, \beta_z)$, $K_R = \mathrm{diag}(I_x\alpha_\phi, I_y\alpha_\theta, I_z\alpha_\psi)$, $K_\Omega = \mathrm{diag}(I_x\beta_\phi, I_y\beta_\theta, I_z\beta_\psi)$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Perché il DFL ha due poli in più in quota.} Il compensatore rende $\ddot T$ l'ingresso, quindi linearizzando $z^{(4)} = \ddot T/m$: anche la quota è una catena di quattro integratori, e il polinomio d'errore è di quarto grado. Due poli sono quelli della quota di BS e GEO, gli altri due vanno scelti. È l'unico asse in cui ``stessi poli'' non vuol dire ``stessa legge'', e la scelta va dichiarata.
+
+\paragraph{Perché il GEO va ricalcolato con la massa.} BS, DFL e PD moltiplicano da soli per $m$ e $J$. Il GEO ha guadagni fisici: se nello scenario B si cambia la massa e si lasciano i guadagni, i poli si spostano.
+
+\begin{esercizio}{10}
+\begin{enumerate}[label=(\alph*)]
+  \item Sviluppa a mano $(s^2 + 2.5\,s + 2.5)(s^2 + 18\,s + 81)$ e ricava $c_3, \dots, c_0$ del DFL su x, y.
+  \item Fai lo stesso per la quota del DFL con la coppia in più a $-9$ doppio e a $-25$ doppio.
+  \item Con $m = 1$~kg e $J = \mathrm{diag}(0.0082,\ 0.0085,\ 0.0149)$~kg\,m$^2$ (valori di esempio), calcola le matrici del GEO.
+  \item Scrivi i guadagni del PD della slide 4 per tutti i canali.
+\end{enumerate}
+\end{esercizio}
+
+\paragraph{Per approfondire.} G.\,F.~Franklin, J.\,D.~Powell, A.~Emami-Naeini, \emph{Feedback Control of Dynamic Systems}: i capitoli sulla risposta dinamica (poli e specifiche nel tempo), sul progetto in frequenza (margini) e sul progetto nello spazio di stato (retroazione dello stato, Ackermann). In italiano: P.~Bolzern, R.~Scattolini, N.~Schiavoni, \emph{Fondamenti di controlli automatici}. Per i numeri del progetto: \texttt{doc/Analisi lineare in hover.html} e la FASE~0 di \texttt{STEPS\_progetto.md}.
+
+%======================================================================
+\appendix
+\section{Soluzioni}\label{app:soluzioni}
+
+\subsection*{Esercizio 1}
+\begin{enumerate}[label=(\alph*)]
+  \item Con $\psi = 0$: $R e_3 = (\sin\theta\cos\phi,\ -\sin\phi,\ \cos\theta\cos\phi)$. Al primo ordine: $(\theta,\ -\phi,\ 1)$.
+  \item $m\ddot x = T\sin\theta\cos\phi \approx (mg + \delta T)\,\theta = mg\,\theta + \delta T\,\theta$. Il termine $\delta T\,\theta$ è il prodotto di due quantità piccole, quindi $\ddot x = g\theta$. Allo stesso modo $\ddot y = -g\phi$. In quota $m\ddot z = (mg + \delta T)\cos\theta\cos\phi - mg \approx \delta T$, perché $\cos\theta\cos\phi = 1 - O(\theta^2, \phi^2)$.
+  \item $\omega \times J\omega$ è quadratico in $\omega$, quindi nullo al primo ordine. $W(\eta) = I + O(\eta)$: $\dot\eta = \omega + O(\eta\,\omega) \approx \omega$, e quindi $\ddot\eta \approx \dot\omega = J^{-1}\tau$.
+  \item Con z verso il basso: $\ddot x = -(\cos\psi\sin\theta\cos\phi + \sin\psi\sin\phi)\,T/m \approx -g\theta$. Il segno cambia perché la spinta punta lungo $-z$ del corpo. I poli non cambiano: il segno si assorbe nell'inversione, $\theta_d = -u_x/g$, e il polinomio in anello chiuso resta lo stesso.
+\end{enumerate}
+
+\subsection*{Esercizio 2}
+\begin{enumerate}[label=(\alph*)]
+  \item $\dfrac{X(s)}{T_\theta(s)} = \dfrac{g}{I_y\, s^4}$.
+  \item $\ddot x = g\theta$ costante: $x = \tfrac12 g\theta t^2 = \tfrac12 \cdot 9.81 \cdot 0.01745 \cdot 1^2 = 0.086$~m, cioè 8.6~cm per un solo grado in un secondo.
+  \item $\ddot z = 0.01\,g = 0.098\ \mathrm{m/s^2}$: in 2~s, $z = \tfrac12 \cdot 0.098 \cdot 4 = 0.20$~m.
+\end{enumerate}
+
+\subsection*{Esercizio 3}
+\begin{enumerate}[label=(\alph*)]
+  \item $\omega_n = \sqrt{2.5} = 1.581$~rad/s, $\zeta = 2.5/(2 \cdot 1.581) = 0.791$, $\sigma = 1.25$, $\omega_d = 1.581\sqrt{1 - 0.625} = 0.968$: poli $-1.25 \pm 0.968j$. $M_p = e^{-\pi \cdot 0.791/0.612} = 1.7\%$. $t_s(5\%)$: stima $3/1.25 = 2.4$~s; tabella $3.33/1.581 = 2.1$~s. Il gradino completo, del quarto ordine con motore, ci mette 2.37~s: l'assetto e il motore aggiungono un po' di ritardo.
+  \item Quota: $\omega_n = 2.646$, $\zeta = 0.945$, poli $-2.5 \pm 0.866j$, $M_p = 0.01\%$, $t_s = 4.34/2.646 = 1.64$~s. Assetto: $\omega_n = 9$, $\zeta = 1$, polo doppio $-9$, $t_s = 4.74/9 = 0.53$~s. Imbardata: $\omega_n = 5$, $\zeta = 1$, $t_s = 4.74/5 = 0.95$~s.
+  \item $\beta = 2 \cdot 0.5 \cdot 1.581 = 1.58$; $M_p = 16.3\%$, cioè 16~mm su 10~cm.
+  \item Con $\tau = \omega_n t$ si ha $\sigma t = \zeta\tau$ e $\omega_d t = \sqrt{1-\zeta^2}\,\tau$, quindi
+  \[
+  y = 1 - e^{-\zeta\tau}\Big(\cos\big(\sqrt{1-\zeta^2}\,\tau\big) + \tfrac{\zeta}{\sqrt{1-\zeta^2}}\sin\big(\sqrt{1-\zeta^2}\,\tau\big)\Big)
+  \]
+  dipende solo da $\zeta$. $\omega_n$ cambia solo la scala dei tempi.
+\end{enumerate}
+
+\subsection*{Esercizio 4}
+\begin{enumerate}[label=(\alph*)]
+  \item $K_{zp} = \omega_n^2 = 7$, $K_{zd} = 2 \cdot 0.945 \cdot 2.646 = 5$. $K_{\psi p} = 25$, $K_{\psi d} = 10$. Con $m = 1$~kg la molla di quota ha rigidezza $mK_{zp} = 7$~N/m e lo smorzatore $5$~N\,s/m.
+  \item $K_{zd} = 2 \cdot 0.7 \cdot 2.646 = 3.70$; $M_p = 4.6\%$.
+  \item A regime la spinta deve reggere il peso vero: $m_{nom}(g + K_{zp}e_z) = m\,g$, quindi
+  \[
+  e_z = \frac{(m/m_{nom} - 1)\,g}{K_{zp}} = \frac{0.5 \cdot 9.81}{7} = 0.70\ \mathrm{m}.
+  \]
+  È la legge di Hooke: il peso in più, $(m - m_{nom})g$, allunga la molla virtuale di rigidezza $m_{nom}K_{zp}$. Il drone resta 70~cm sotto il riferimento. Si riduce con una molla più rigida ($\omega_n$ più alta) o con un'azione integrale.
+\end{enumerate}
+
+\subsection*{Esercizio 5}
+\begin{enumerate}[label=(\alph*)]
+  \item Dalla legge interna con derivate esatte: $\ddot\theta = \ddot\theta_d + \beta_a\dot e_\theta + \alpha_a e_\theta$, quindi $\ddot e_\theta + \beta_a\dot e_\theta + \alpha_a e_\theta = 0$. Per la posizione: $\ddot x = g\theta = g\theta_d - g e_\theta = u_x - g e_\theta$, cioè $\ddot x + \beta_p\dot x + \alpha_p x = -g\,e_\theta$. Nello stato $(x, \dot x, e_\theta, \dot e_\theta)$ la matrice è triangolare a blocchi: $e_\theta$ entra nell'equazione di $x$, ma $x$ non entra in quella di $e_\theta$. Gli autovalori sono quelli dei due blocchi: $p_A = (s^2 + \beta_p s + \alpha_p)(s^2 + \beta_a s + \alpha_a)$.
+  \item $\ddot\theta = \alpha_a(\theta_d - \theta) - \beta_a\dot\theta$, quindi $(s^2 + \beta_a s + \alpha_a)\Theta = \alpha_a\Theta_d$. Sostituendo $\Theta = s^2X/g$ e $\Theta_d = -(\beta_p s + \alpha_p)X/g$: $(s^2 + \beta_a s + \alpha_a)\,s^2 = -\alpha_a(\beta_p s + \alpha_p)$, cioè $s^4 + \beta_a s^3 + \alpha_a s^2 + \alpha_a\beta_p s + \alpha_a\alpha_p = 0$.
+  \item $p_A = s^4 + 20.5\,s^3 + 128.5\,s^2 + 247.5\,s + 202.5$; $p_B = s^4 + 18\,s^3 + 81\,s^2 + 202.5\,s + 202.5$. In $p_B$ mancano $\beta_p = 2.5$ in $s^3$, $\alpha_p + \beta_a\beta_p = 47.5$ in $s^2$ e $\alpha_p\beta_a = 45$ in $s$.
+  \item $\omega_n = \sqrt{1.64^2 + 2.37^2} = 2.89$~rad/s, $\zeta = 1.64/2.89 = 0.57$: più veloce e meno smorzata della coppia scelta, $(1.58,\ 0.79)$.
+  \item $\beta_a\beta_p \ll \alpha_a$ vuol dire $\beta_p \ll \alpha_a/\beta_a$. Con $\zeta_a = 1$, $\alpha_a/\beta_a = \omega_{n,a}/2 = 4.5$, mentre $\beta_p = 2.5$: la condizione non è soddisfatta. Per questo la separazione delle scale, da sola, non basta.
+\end{enumerate}
+
+\subsection*{Esercizio 6}
+\begin{enumerate}[label=(\alph*)]
+  \item $B = e_4$, $AB = e_3$, $A^2B = g\,e_2$, $A^3B = g\,e_1$, quindi
+  $\mathcal{C} = \begin{pmatrix} 0&0&0&g \\ 0&0&g&0 \\ 0&1&0&0 \\ 1&0&0&0 \end{pmatrix}$, con $|\det\mathcal{C}| = g^2 \neq 0$: rango 4.
+  \item $K = (202.5/9.81,\ 247.5/9.81,\ 128.5,\ 20.5) = (20.64,\ 25.23,\ 128.5,\ 20.5)$.
+  \item Con $\theta_d = -(\beta_p\dot x + \alpha_p x)/g$ e $\ddot x = g\theta$: $\dot\theta_d = -\beta_p\theta - \alpha_p\dot x/g$ e $\ddot\theta_d = -\beta_p\dot\theta - \alpha_p\theta$. Sostituendo nella legge interna e raccogliendo:
+  \[
+  u_\theta = -\frac{\alpha_a\alpha_p}{g}\,x - \frac{\alpha_a\beta_p + \alpha_p\beta_a}{g}\,\dot x - (\alpha_a + \alpha_p + \beta_a\beta_p)\,\theta - (\beta_a + \beta_p)\,\dot\theta .
+  \]
+  Sono i coefficienti di $p_A$ divisi come in (b): $K$ coincide, come previsto dall'unicità.
+  \item Caso B: $u_\theta = \alpha_a(\theta_d - \theta) - \beta_a\dot\theta$, quindi
+  \[
+  K_B = (\alpha_a\alpha_p/g,\ \alpha_a\beta_p/g,\ \alpha_a,\ \beta_a) = (20.64,\ 20.64,\ 81,\ 18).
+  \]
+  Differisce da $K_A$ sulla velocità, sull'angolo e sulla velocità angolare: il caso B ha meno smorzamento dove serve.
+\end{enumerate}
+
+\subsection*{Esercizio 7}
+\begin{enumerate}[label=(\alph*)]
+  \item $\dot e_1 = e_2 - k_1 e_1$. $\dot e_2 = \ddot e_1 + k_1\dot e_1 = (\ddot y_d - u) + k_1\dot e_1 = -e_1 - k_2 e_2$. Matrice $\begin{pmatrix} -k_1 & 1 \\ -1 & -k_2 \end{pmatrix}$, polinomio $(s + k_1)(s + k_2) + 1$. $\dot V = e_1\dot e_1 + e_2\dot e_2 = -k_1 e_1^2 + e_1e_2 - e_1e_2 - k_2e_2^2$. In funzione di $e_1$: $u = \ddot y_d + (1 + k_1k_2)\,e_1 + (k_1 + k_2)\,\dot e_1$, la seconda forma della slide 5 con $K_{zp} = k_1$, $K_{zd} = k_2$.
+  \item x, y: $k^2 - 2.5k + 1.5 = 0 \Rightarrow (1,\ 1.5)$. z: $k^2 - 5k + 6 = 0 \Rightarrow (2,\ 3)$. Assetto: $k^2 - 18k + 80 = 0 \Rightarrow (8,\ 10)$. Imbardata: $k^2 - 10k + 24 = 0 \Rightarrow (4,\ 6)$.
+  \item $\zeta_{min}$: x, y $\sqrt{1 - 1/2.5} = 0.775 \le 0.791$; z $\sqrt{1 - 1/7} = 0.926 \le 0.945$; assetto $\sqrt{1 - 1/81} = 0.994 \le 1$; imbardata $\sqrt{1 - 1/25} = 0.980 \le 1$. Tutti ammessi.
+  \item $\omega_d^2 = \omega_n^2(1 - \zeta^2) \le \omega_n^2(1 - \zeta_{min}^2) = \omega_n^2 \cdot \dfrac{1}{\omega_n^2} = 1$.
+  \item $\zeta_{min} = \sqrt{1 - 1/2.06^2} = 0.874 > 0.79$: non è ammesso. Va alzato a $\zeta = 0.874$, dove $k_1 = k_2 = \zeta\omega_n = 1.80$. Gli stessi poli corretti vanno dati anche agli altri controllori.
+\end{enumerate}
+
+\subsection*{Esercizio 8}
+\begin{enumerate}[label=(\alph*)]
+  \item $\omega^4 - 324\,\omega^2 - 6561 = 0 \Rightarrow \omega^2 = \tfrac12\big(324 + \sqrt{324^2 + 4 \cdot 6561}\big) = 343.1$, $\omega_c = 18.52$~rad/s. Fase ideale: $\arctan(18 \cdot 18.52/81) = 76.3^\circ$, quindi PM ideale $76.3^\circ$. Motore: $\arctan(18.52 \cdot 0.02) = 20.3^\circ$. Ritardo: $18.52 \cdot 0.0025 = 0.046$~rad $= 2.7^\circ$. PM $\approx 76.3 - 20.3 - 2.7 = 53.4^\circ$. Tenendo conto del modulo del motore, $\omega_c$ scende a 17.5 e PM $= 53.8^\circ$.
+  \item $\omega_c = 2.06 \cdot 12 = 24.7$; motore $26.3^\circ$, ritardo $3.5^\circ$: PM $\approx 46.5^\circ < 50^\circ$ (47.6$^\circ$ con il modulo del motore). Non rispettata.
+  \item Con $\omega = \omega_n\Omega$: $|L_{id}| = \sqrt{4\zeta^2\Omega^2 + 1}/\Omega^2$ e fase ideale $\arctan(2\zeta\Omega)$, senza $\omega_n$. Per $\zeta = 1$: $\Omega^4 - 4\Omega^2 - 1 = 0$, $\Omega^2 = 2 + \sqrt5$, $\Omega = 2.058$; fase $\arctan(4.12) = 76.3^\circ$. La condizione, tutta in gradi, è $\arctan(0.02\,\omega_c) + 0.143\,\omega_c = 76.3 - 50 = 26.3^\circ$ (il ritardo vale $\omega_c \cdot 0.0025$~rad $= 0.143\,\omega_c$ gradi), vera per $\omega_c \approx 21.5$, cioè $\omega_n \approx 10.4$. Con il modulo del motore si arriva a 10.8.
+  \item $53.8^\circ = 0.939$~rad: $0.939/17.5 = 0.054$~s. L'anello tollera circa 54~ms di ritardo in più.
+  \item $\arctan(18.52 \cdot 0.04) = 36.5^\circ$: PM $\approx 76.3 - 36.5 - 2.7 = 37^\circ$ (39.5$^\circ$ con il modulo). I motori due volte più lenti tolgono circa $14^\circ$.
+\end{enumerate}
+
+\subsection*{Esercizio 9}
+Serve $\arctan(0.02\,\omega_c) + 0.143\,\omega_c = 76.3 - 60 = 16.3^\circ$: con $\omega_c = 12$ si ha $15.2^\circ$, con $13$ si ha $16.4^\circ$, quindi $\omega_c \approx 12.9$ e $\omega_n \approx 12.9/2.06 = 6.3$~rad/s. BS d'assetto: $k = \omega_n \pm 1 = (5.3,\ 7.3)$. Posizione: $\omega_n \approx 6.3/5.7 = 1.1$; con $\zeta = 0.79$, $\alpha = 1.23$, $\beta = 1.75$ e $k = (0.14,\ 1.61)$. Vincolo: $\zeta_{min} = \sqrt{1 - 1/1.23} = 0.43 \le 0.79$. È la taratura a $\kappa = 0.7$ della FASE 7 del progetto.
+
+\subsection*{Esercizio 10}
+\begin{enumerate}[label=(\alph*)]
+  \item $s^4 + (18 + 2.5)s^3 + (81 + 2.5 + 2.5 \cdot 18)s^2 + (2.5 \cdot 81 + 2.5 \cdot 18)s + 2.5 \cdot 81 = s^4 + 20.5\,s^3 + 128.5\,s^2 + 247.5\,s + 202.5$: $(c_3, c_2, c_1, c_0) = (20.5,\ 128.5,\ 247.5,\ 202.5)$.
+  \item Con $-9$ doppio, $(s^2 + 5s + 7)(s^2 + 18s + 81)$: $(23,\ 178,\ 531,\ 567)$. Con $-25$ doppio, $(s^2 + 5s + 7)(s^2 + 50s + 625)$: $(55,\ 882,\ 3475,\ 4375)$.
+  \item $K_x = \mathrm{diag}(2.5,\ 2.5,\ 7)$, $K_v = \mathrm{diag}(2.5,\ 2.5,\ 5)$, $K_R = \mathrm{diag}(0.664,\ 0.689,\ 0.373)$, $K_\Omega = \mathrm{diag}(0.148,\ 0.153,\ 0.149)$.
+  \item $K_{xp} = K_{yp} = 2.5$, $K_{xd} = K_{yd} = 2.5$; $K_{zp} = 7$, $K_{zd} = 5$; $K_{\phi p} = 81 I_x$, $K_{\phi d} = 18 I_x$; $K_{\theta p} = 81 I_y$, $K_{\theta d} = 18 I_y$; $K_{\psi p} = 25 I_z$, $K_{\psi d} = 10 I_z$.
+\end{enumerate}
+
+%======================================================================
+\clearpage
+\section{Formulario}\label{app:formulario}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.55}
+\begin{tabularx}{\textwidth}{@{}lL@{}}
+\toprule
+Modello in hover & $\ddot x = g\theta$, $\ddot y = -g\phi$, $\ddot z = \delta T/m$, $\ddot\eta_i = \tau_i/I_i$ \\
+Secondo ordine & $s^2 + 2\zeta\omega_n s + \omega_n^2$, \quad $\beta = 2\zeta\omega_n$, \quad $\alpha = \omega_n^2$ \\
+Poli & $-\zeta\omega_n \pm j\omega_n\sqrt{1-\zeta^2}$; \quad $|s| = \omega_n$, \quad $\cos\gamma = \zeta$ \\
+Massa--molla--smorzatore & $\omega_n = \sqrt{k/m}$, \quad $\zeta = c/(2\sqrt{km})$ \\
+Specifiche & $M_p = e^{-\pi\zeta/\sqrt{1-\zeta^2}}$, \quad $t_p = \pi/\omega_d$, \quad $t_s(5\%) \approx 3/(\zeta\omega_n)$; \quad $\zeta = 1$: $t_s(5\%) = 4.74/\omega_n$ \\
+PD su $\ddot y = u$ & $u = \ddot y_d + K_d\dot e + K_p e$, \quad $K_p = \omega_n^2$, \quad $K_d = 2\zeta\omega_n$ \\
+Cascata, derivate esatte & $(s^2 + \beta_p s + \alpha_p)(s^2 + \beta_a s + \alpha_a)$ \\
+Cascata, derivate nulle & $s^4 + \beta_a s^3 + \alpha_a s^2 + \alpha_a\beta_p s + \alpha_a\alpha_p$ \\
+Catena $x^{(4)} = g\,u_\theta$ & $K = (c_0/g,\ c_1/g,\ c_2,\ c_3)$ per $s^4 + c_3 s^3 + c_2 s^2 + c_1 s + c_0$ \\
+Backstepping & $s^2 + (k_1+k_2)s + (1 + k_1k_2)$; \quad $k_{1,2} = \tfrac12\big(\beta \pm \sqrt{\beta^2 - 4(\alpha-1)}\big)$ \\
+Vincolo del BS & $\omega_n > 1$, \quad $\zeta \ge \sqrt{1 - 1/\omega_n^2}$, \quad $\omega_d \le 1$ rad/s \\
+Margine di fase & $|L(j\omega_c)| = 1$, \quad $\mathrm{PM} = 180^\circ + \angle L(j\omega_c)$; \quad margine di ritardo $\mathrm{PM}/\omega_c$ \\
+Fasi & $\frac{1}{\tau s + 1}$: $-\arctan\omega\tau$; \quad $e^{-sT}$: $-\omega T$; \quad campionamento: $T \approx T_c/2$ \\
+Assetto, $\zeta = 1$ & $\omega_c^{id} = 2.06\,\omega_n$, \quad PM ideale $76.3^\circ$ \\
+Massa non nota & $e_z = (m/m_{nom} - 1)\,g/K_{zp}$ \\
+GEO & $K_x = m\alpha$, $K_v = m\beta$, $K_R = I\alpha$, $K_\Omega = I\beta$ (per asse) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\end{document}

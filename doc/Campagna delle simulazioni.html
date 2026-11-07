@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Campagna delle simulazioni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400&display=swap">
+<style>
+/* Stessi colori e caratteri di "Avanzamento del progetto.html" */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f6;
+  --surface: #fcfcfd;
+  --fg: #15181d;
+  --fg2: #4a515b;
+  --muted: #7c848f;
+  --axis: #b9bfc7;
+  --line: rgba(21, 24, 29, 0.11);
+  --accent: #1f5bb5;
+  --crit: #d03b3b;
+  --good-ink: #006300;
+  --warn-ink: #8a5600;
+  --wash: rgba(42, 120, 214, 0.07);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+    --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+    --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440;
+    --wash: rgba(57, 135, 229, 0.12);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+  --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+  --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440;
+  --wash: rgba(57, 135, 229, 0.12);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.62 var(--f-body);
+  font-optical-sizing: auto;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 44px;
+}
+.col { max-width: 720px; width: 100%; margin: 0 auto; display: grid; gap: 14px; min-width: 0; }
+.col > * { margin: 0; }
+.wide { width: 100%; display: grid; gap: 14px; min-width: 0; }
+.wide > * { margin: 0; }
+section { display: grid; gap: 22px; min-width: 0; }
+
+h1, h2, h3 { font-family: var(--f-display); font-stretch: 88%; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 760; letter-spacing: -0.01em; }
+h2 { font-size: 27px; font-weight: 720; }
+h3 { font-size: 19px; font-weight: 680; margin-top: 8px; }
+.eyebrow { font: 600 12.5px/1.2 var(--f-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg2); }
+.sec-num { font: 500 14px var(--f-mono); color: var(--accent); display: block; margin-bottom: 6px; }
+.lede { font-size: 19.5px; line-height: 1.55; }
+.meta { font: 500 13px/1.5 var(--f-mono); color: var(--fg2); }
+p { text-wrap: pretty; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--wash); padding: 0.05em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+a { color: var(--accent); }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
+li::marker { color: var(--accent); }
+
+.note {
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  display: grid; gap: 6px;
+}
+.note > * { margin: 0; }
+.note.warn { border-left-color: var(--crit); }
+
+/* I numeri della griglia */
+.conto { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.conto div { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.conto b { font: 700 28px/1.1 var(--f-display); font-stretch: 88%; font-variant-numeric: tabular-nums; }
+.conto span { font: 500 13px/1.35 var(--f-display); color: var(--fg2); }
+.conto div.tot { border-color: var(--accent); background: var(--wash); }
+.conto div.tot b { color: var(--accent); }
+
+/* Tabelle */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 13px/1.35 var(--f-display); color: var(--fg2); letter-spacing: 0.02em; background: var(--bg); }
+td.num { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.sub { color: var(--fg2); font-size: 14px; }
+td.name { font: 600 14.5px/1.35 var(--f-display); font-stretch: 92%; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+tr.grp td { background: var(--wash); font: 600 13px var(--f-display); color: var(--fg2); }
+table.griglia { min-width: 760px; }
+table.griglia td { font-size: 14.5px; }
+.aperto { font: 500 12px/1.3 var(--f-mono); color: var(--warn-ink); white-space: nowrap; }
+.cap { font-size: 14.5px; color: var(--fg2); }
+
+/* Su schermi stretti le tabelle di testo diventano schede impilate */
+@media (max-width: 640px) {
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; }
+  table.stack thead { display: none; }
+  table.stack tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  table.stack tr:last-child { border-bottom: 0; }
+  table.stack td { border-bottom: 0; padding: 3px 14px; }
+  table.stack td.name { white-space: normal; }
+  table.stack tr.grp td { padding: 6px 14px; }
+}
+.passi { counter-reset: p; list-style: none; padding: 0; gap: 0; }
+.passi li { counter-increment: p; display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+.passi li::before { content: counter(p); font: 600 15px var(--f-mono); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="col">
+  <div class="eyebrow">Elective in Robotics · confronto BS / DFL / GEO · fissato il 7 novembre 2026</div>
+  <h1>Campagna delle simulazioni</h1>
+  <p class="lede">Quali prove si fanno, su quali finestre si misurano e che cosa si registra di ognuna.</p>
+  <p class="meta">Riferimento: commit 5797612. Dove questa pagina e <code>planning.md</code> / <code>STEPS_progetto.md</code> non coincidono (per esempio sul numero di prove), vale questa pagina.</p>
+</header>
+
+<!-- 1 · La griglia -->
+<section class="col" id="griglia">
+  <div><span class="sec-num">1</span><h2>La griglia</h2></div>
+  <p>Si fanno <strong>solo le prove della griglia</strong>: 3 riferimenti × 4 scenari × 3 livelli, per ciascuno dei tre controllori. Nessuna prova fuori griglia.</p>
+  <div class="conto" aria-label="Conteggio delle prove">
+    <div><b>3</b><span>riferimenti: hover, otto, waypoint</span></div>
+    <div><b>4</b><span>scenari: N, A aria, B carico, C motori</span></div>
+    <div><b>3</b><span>livelli per scenario</span></div>
+    <div><b>36</b><span>prove per controllore</span></div>
+    <div class="tot"><b>108</b><span>prove in tutto (BS, DFL, GEO)</span></div>
+  </div>
+  <p><strong>Regola:</strong> in ogni riga gli scenari A, B e C girano alla difficoltà di <strong>N2</strong>, così ogni scenario ha il suo nominale alla stessa difficoltà. Dopo la campagna nominale si controlla che tutti e tre riescano a N2 con margine. Eccezione: T1-A parte fermo in P.</p>
+</section>
+
+<section class="wide" aria-label="Livelli di ogni cella">
+  <div class="table-wrap">
+    <table class="griglia">
+      <thead><tr><th></th><th>N nominale (difficoltà)</th><th>A aria</th><th>B carico</th><th>C motori</th></tr></thead>
+      <tbody>
+        <tr><td class="name">T1 hover</td><td>N1: 10 cm su x<br>N2: (1, 1, 0.5) m e 90° di yaw<br>N3: rilasciato a 3 m con 120° di beccheggio</td><td>fermo in P, vento da t = 0, raffica a 8 s</td><td>come N2</td><td>come N2</td></tr>
+        <tr><td class="name">T2 otto</td><td>ω = 0.8 · 1.4 · <strong>2.3</strong> rad/s<br><span class="cap">inclinazione 11.7° · 32.5° · 59.8°</span> <span class="aperto">2.3 da confermare</span></td><td>a ω di N2</td><td>a ω di N2</td><td>a ω di N2</td></tr>
+        <tr><td class="name">T3 waypoint</td><td><code>v_media</code> = 1 · 2 · 2.5 m/s, <code>min_snap</code><br><span class="cap">inclinazione 8.4° · 37.6° · 59.6°</span></td><td>a <code>v_media</code> di N2</td><td>a <code>v_media</code> di N2</td><td>a <code>v_media</code> di N2</td></tr>
+        <tr class="grp"><td>Livelli 1 · 2 · 3</td><td>—</td><td>vento 2 · 4 · 6 m/s, raffica +2 · +4 · +6 m/s</td><td>massa e inerzia ×1.5 · ×2 · ×2.5</td><td>τ<sub>m</sub> <span class="aperto">da fissare</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap col">Livelli di A e B dal planning §5.3 (c<sub>a</sub>: 1 m/s di velocità relativa dà 0.05 mg). I livelli di A, B e C sono gli stessi per tutti e tre i riferimenti.</p>
+</section>
+
+<section class="col">
+  <div class="note warn">
+    <p><strong>Che cosa si perde, da scrivere nella relazione.</strong> H6 (riferimento poco regolare) non ha più una prova dedicata: la variante <code>min_jerk</code> / <code>cubica</code> di T3 è fuori griglia. H3 (inclinazione iniziale) si giudica su un solo caso, 120° di beccheggio, senza il confronto con il rollio.</p>
+  </div>
+</section>
+
+<!-- 2 · Le fasi -->
+<section class="wide" id="fasi">
+  <div class="col"><div><span class="sec-num">2</span><h2>Le fasi del volo</h2></div>
+  <p>Le finestre su cui si calcolano le metriche: le stesse per i tre controllori, scritte nella descrizione della prova e usate solo dall'analisi.</p></div>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th></th><th>F1 convergenza</th><th>F2 regime</th><th>F3 disturbo</th><th>F4 arrivo</th><th>Durata</th></tr></thead>
+      <tbody>
+        <tr><td class="name">T1 · N, B, C</td><td>[0, 6) s</td><td>—</td><td>—</td><td>[7, 10) s</td><td class="num">10 s</td></tr>
+        <tr><td class="name">T1 · A</td><td>—</td><td>[4, 8) s, vento costante</td><td>[8, 13) s, raffica a 8 s</td><td>[13, 16) s</td><td class="num">16 s</td></tr>
+        <tr><td class="name">T2</td><td>giro 1</td><td>giri 2, 3, 4: una fase per giro</td><td>in A: giro 3, raffica al lobo x = +A, t<sub>0</sub> = 4.5π/ω</td><td>—</td><td class="num">4 giri = 8π/ω</td></tr>
+        <tr><td class="name">T3</td><td>—</td><td>[0, t<sub>fine</sub>)</td><td>in A: [t<sub>0</sub>, t<sub>0</sub> + 4 s), t<sub>0</sub> = inizio del tratto 2 <span class="aperto">da confermare</span></td><td>[t<sub>fine</sub>, t<sub>fine</sub> + 4 s)</td><td class="num">t<sub>fine</sub> + 4 s</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap col">Durata, finestre e istante della raffica si calcolano dal riferimento, non si scrivono come numeri: se cambia la difficoltà di N2, restano giusti. In T3 la raffica (2 s) dura più di un lato del quadrato (1.68 s a 2 m/s): per questo F3 è definita a tempo e non come "il tratto con la raffica".</p>
+</section>
+
+<!-- 3 · Cosa si registra -->
+<section class="col" id="registro">
+  <div><span class="sec-num">3</span><h2>Che cosa si registra di ogni prova</h2></div>
+  <p>Alla fine della prova si salva il <strong>log</strong>, non le statistiche. La cartella <code>output/&lt;id&gt;/</code> deve bastare da sola: ogni metrica si calcola dalle sue colonne, e ogni numero che ha influito sulla simulazione è nei metadati. Il log si scrive a prova finita, tutto in una volta, così una prova interrotta non sembra fatta.</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>File</th><th>Contenuto</th></tr></thead>
+      <tbody>
+        <tr><td class="name"><code>metadati.json</code></td><td>com'era fatta la prova, scritto una volta</td></tr>
+        <tr><td class="name"><code>serie.npz</code></td><td>una riga per passo di controllo, con le stesse chiavi in tutte le 108 prove</td></tr>
+        <tr><td class="name"><code>interne.npz</code></td><td>le grandezze proprie del controllore, diverse per BS, DFL e GEO</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Serie temporali</h3>
+  <p>Ogni riga è l'istante t<sub>k</sub>: stato letto, riferimento valutato, comando calcolato e quello che i motori applicano fino a t<sub>k+1</sub>. Si registra prima di <code>sim.step()</code>, a ogni passo.</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Grandezza</th><th>Colonne</th><th>A cosa serve</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="3">Per le metriche</td></tr>
+        <tr><td class="name">t</td><td class="num">1</td><td>finestre delle fasi, derivate dei comandi</td></tr>
+        <tr><td class="name">p, p<sub>d</sub></td><td class="num">6</td><td>errori, IAE, t<sub>c</sub>, sovraelongazione, picco, t<sub>r</sub>, ritardo d'arrivo, quota persa</td></tr>
+        <tr><td class="name">R</td><td class="num">9</td><td>inclinazione massima (arccos R<sub>33</sub>) e ψ</td></tr>
+        <tr><td class="name">ψ<sub>d</sub></td><td class="num">1</td><td>errore di yaw</td></tr>
+        <tr><td class="name">T, τ comandati</td><td class="num">4</td><td>sforzo: RMS(T − mg), RMS‖τ‖, regolarità</td></tr>
+        <tr><td class="name">saturazione per motore</td><td class="num">4</td><td>% di passi saturi</td></tr>
+        <tr><td class="name">t<sub>calc</sub></td><td class="num">1</td><td>costo della sola <code>calcola</code></td></tr>
+        <tr class="grp"><td colspan="3">Per la diagnosi</td></tr>
+        <tr><td class="name">v, v<sub>d</sub>, a<sub>d</sub></td><td class="num">9</td><td>ritardo d'inseguimento, controllo dell'attrito</td></tr>
+        <tr><td class="name">η, ω</td><td class="num">6</td><td>η è quello che vedono BS e DFL</td></tr>
+        <tr><td class="name">T, τ realizzati</td><td class="num">4</td><td>quanto la saturazione ha tagliato</td></tr>
+        <tr><td class="name">Ω richieste, Ω reali</td><td class="num">8</td><td>ritardo dei motori nello scenario C</td></tr>
+        <tr><td class="name">forza dell'aria</td><td class="num">3</td><td>che il vento applicato sia quello voluto</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li><strong>Saturazione sulla richiesta</strong>, prima del taglio e su entrambi i lati: vale 1 se la richiesta del mixer esce da [0, Ω<sub>max</sub>]. Dopo il taglio non si vede più.</li>
+    <li><strong>Lo sforzo si calcola sui comandati</strong> (quanto chiede il controllore); i realizzati dicono quanto ha ottenuto.</li>
+    <li>Realizzati, Ω richieste e saturazione richiedono le modifiche al <code>Drone</code>.</li>
+  </ul>
+
+  <h3>Grandezze interne</h3>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Controllore</th><th>Grandezze</th><th>A cosa servono</th></tr></thead>
+      <tbody>
+        <tr><td class="name">BS</td><td>η<sub>d</sub>, V<sub>pos</sub>, V<sub>att</sub></td><td>se η<sub>d</sub> tocca <code>angolo_max</code></td></tr>
+        <tr><td class="name">DFL</td><td>η<sub>d</sub>, ζ = (T, Ṫ)</td><td>windup del compensatore in saturazione (H4)</td></tr>
+        <tr><td class="name">GEO</td><td>R<sub>d</sub>, e<sub>R</sub>, e<sub>Ω</sub>, Ψ</td><td>comportamento vicino a 180° (H3)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>L'errore rispetto al proprio assetto desiderato si calcola da qui, ma <strong>solo per la diagnosi</strong> di un controllore: ognuno ha il suo assetto desiderato, quindi non si confronta tra metodi.</p>
+
+  <h3>Metadati</h3>
+  <ul>
+    <li><strong>Identità</strong>: id e quaterna (c, r, s, ℓ).</li>
+    <li><strong>Descrizione della prova</strong>: riferimento e parametri, posa iniziale, aria (c<sub>a</sub>, vento, Δv, t<sub>0</sub>, T<sub>g</sub>), fattore di carico, τ<sub>m</sub>, durata, finestre delle fasi, criteri di fallimento.</li>
+    <li><strong>Drone</strong>: m e J letti dalla scena <em>dopo</em> la scalatura di B, <code>PARAM_MOTORI</code> effettivi, T<sub>max</sub>, Ω<sub>h</sub>, <code>DT</code>.</li>
+    <li><strong>Controllore</strong>: classe, poli, guadagni effettivi, limiti, τ<sub>f</sub>, poli in più del DFL.</li>
+    <li><strong>Versione</strong>: commit, modifiche non committate sì/no, data, versione di CoppeliaSim e motore fisico.</li>
+    <li><strong>Esito</strong>: riuscita o fallita, motivo, istante del fallimento, passi eseguiti, tempo reale.</li>
+    <li><strong>Riassunto rapido</strong>: ē ed e<sub>max</sub> sull'intera prova, stampati a fine prova. Servono a vedere subito com'è andata; i valori ufficiali sono quelli per fase.</li>
+  </ul>
+  <p class="cap">Non si registrano jerk e snap del riferimento (si ricalcolano dalla descrizione) né il tempo di un passo intero con ZMQ, che non è una metrica.</p>
+</section>
+
+<!-- 4 · Il vettore delle metriche -->
+<section class="col" id="metriche">
+  <div><span class="sec-num">4</span><h2>Il vettore delle metriche</h2></div>
+  <p>È la m(c, r, s, ℓ, f) della proposta: una per <strong>fase</strong>, calcolata dopo, dal log, da <code>metriche.py</code>. Tutte le prove finiscono in un'unica tabella: una riga per (controllore, riferimento, scenario, livello, fase), sempre le stesse colonne, NaN dove una metrica non si applica o la fase non è stata raggiunta.</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Gruppo</th><th>Colonne</th></tr></thead>
+      <tbody>
+        <tr><td class="name">Accuratezza</td><td>errore medio ē, RMSE, errore massimo, massimo su x / y / z, ψ RMS e massimo, errore a regime, IAE</td></tr>
+        <tr><td class="name">Tempi</td><td>t<sub>c</sub> (a ε), sovraelongazione, quota persa, picco, t<sub>r</sub>, ritardo d'arrivo</td></tr>
+        <tr><td class="name">Sforzo</td><td>RMS(T − mg), RMS‖τ‖, RMS di dT/dt e di ‖dτ‖/dt, % di passi saturi, inclinazione massima</td></tr>
+        <tr><td class="name">Solo fase TOT</td><td>t<sub>calc</sub>: mediana, 99° percentile, massimo, rapporto con <code>DT</code>; esito</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul>
+    <li>Su T2 i giri 2, 3 e 4 sono fasi a sé, quindi anche le metriche giro per giro stanno nella tabella.</li>
+    <li><strong>Tra metodi</strong>: fissi (r, s, ℓ, f) e confronti le tre righe che differiscono per c.</li>
+    <li><strong>Effetto di uno scenario</strong>: fissi c e confronti le righe di s con quelle di N2.</li>
+    <li>Se cambiano ε o una finestra, si rifanno i conti in pochi secondi, senza rilanciare CoppeliaSim.</li>
+  </ul>
+</section>
+
+<!-- 5 · Aperto e prossimi passi -->
+<section class="col" id="prossimi">
+  <div><span class="sec-num">5</span><h2>Da chiudere e prossimi passi</h2></div>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Da chiudere prima di <code>scenari.py</code></th><th>Proposta</th></tr></thead>
+      <tbody>
+        <tr><td class="name">ω di T2-N3</td><td>2.3 rad/s (fino a ~60°, come dice la proposta) invece di 1.8 (46.5°)</td></tr>
+        <tr><td class="name">F3 di T3-A</td><td>a tempo: dall'inizio del tratto 2 per 4 s</td></tr>
+        <tr><td class="name">Livelli di C</td><td>40 · 60 · 80 ms del planning, oppure 40 · 70 · 110 ms per trovare la soglia di rottura</td></tr>
+        <tr><td class="name">Derivate dell'assetto desiderato</td><td>filtrate, τ<sub>f</sub> = 20 ms, per BS e GEO</td></tr>
+        <tr><td class="name">Poli in più del DFL su z</td><td>−25 doppio</td></tr>
+        <tr><td class="name">Limiti</td><td><code>angolo_max</code> del BS a 80°, T<sub>max</sub> fisico, T<sub>min</sub> = 0.1 mg per tutti</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ol class="passi">
+    <li><div>Spostare <code>verifica_controllori.py</code> dalla cartella temporanea in <code>analisi/</code>.</div></li>
+    <li><div><code>comune/taratura.py</code>: i guadagni dei tre controllori dai poli.</div></li>
+    <li><div>Modifiche al <code>Drone</code>: motori da Ω<sub>h</sub>, Ω richieste e saturazione, T e τ realizzati, τ<sub>m</sub> modificabile.</div></li>
+    <li><div><code>scenari.py</code>, <code>esecuzione.py</code>, <code>registro.py</code>, provati prima sull'impianto Python.</div></li>
+    <li><div>T1-N1 in CoppeliaSim per i tre controllori, entro 2 mm dalla previsione lineare. Poi la campagna nominale, poi gli scenari.</div></li>
+  </ol>
+</section>
+
+</div>
+</body>
+</html>
