@@ -11,8 +11,16 @@ desiderato), quindi non ha funzioni proprie: vale tutto quello che vale per il B
 
 Uso:  python analisi/lineare.py   -> stampa i controlli contro i blocchi Verifica di STEPS_progetto.md
 """
+import sys
+from pathlib import Path
+
 import numpy as np
 from scipy.linalg import expm
+
+# Le funzioni dai poli ai guadagni stanno in comune/taratura.py (FASE 1): qui si importano, non si riscrivono
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from comune.taratura import polinomio, zeta_min_bs, coefficienti_dfl, scala_poli
+from comune.taratura import canale_bs as guadagni_bs
 
 G = 9.81
 
@@ -21,9 +29,10 @@ TAU_M = 0.02    # costante di tempo dei motori [s]
 T_C = 0.005     # passo di controllo e di simulazione [s]
 TAU_F = 0.02    # costante di tempo del filtro sulle derivate di phi_d, theta_d [s]
 
-# --- Poli nominali: (omega_n [rad/s], zeta) di ogni canale ---
+# --- Poli della FASE 0: (omega_n [rad/s], zeta) di ogni canale ---
 # Sono quelli dei guadagni di main_hover.py: per esempio (k1, k2) = (1, 1.5) dà s^2 + 2.5 s + 2.5,
-# cioè omega_n = sqrt(2.5) e zeta = 2.5/(2 sqrt(2.5)). Nella FASE 1 questo dizionario va in comune/taratura.py
+# cioè omega_n = sqrt(2.5) e zeta = 2.5/(2 sqrt(2.5)). Restano qui perché il rapporto della FASE 0 è scritto
+# con la coppia del DFL su z a -9 doppio. La taratura in uso è comune/taratura.POLI (DFL su z a -20 doppio)
 POLI = {
     'xy':    (np.sqrt(2.5), 2.5/(2*np.sqrt(2.5))),
     'z':     (np.sqrt(7.0), 5.0/(2*np.sqrt(7.0))),
@@ -34,50 +43,6 @@ POLI = {
 
 # Griglia di frequenze per margini e carta di Nichols [rad/s] (sotto la frequenza di Nyquist pi/T_C)
 W = np.logspace(-2, np.log10(600), 4000)
-
-
-# =====================================================================================
-# Dai poli ai guadagni
-# =====================================================================================
-
-def polinomio(wn, zeta):
-    # Coefficienti di s^2 + beta s + alpha
-    return 2*zeta*wn, wn**2
-
-
-def zeta_min_bs(wn):
-    # Il canale del BS dà s^2 + (k1 + k2) s + (1 + k1 k2): k1, k2 reali e positivi solo se zeta >= sqrt(1 - 1/wn^2)
-    if wn <= 1:
-        return np.inf
-    return np.sqrt(1 - 1/wn**2)
-
-
-def guadagni_bs(wn, zeta):
-    # (k1, k2) del BS: radici di k^2 - beta k + (alpha - 1) = 0
-    beta, alpha = polinomio(wn, zeta)
-    delta = beta**2 - 4*(alpha - 1)
-    if alpha <= 1 or delta < -1e-9:
-        raise ValueError("Poli fuori dal vincolo del BS: wn="+str(round(wn,3))+" zeta="+str(round(zeta,3))
-                         +" (serve zeta >= "+str(round(zeta_min_bs(wn),3))+")")
-    r = np.sqrt(max(delta, 0.0))
-    return (beta - r)/2, (beta + r)/2
-
-
-def coefficienti_dfl(pol_lento, pol_veloce):
-    # c3, c2, c1, c0 del DFL: coefficienti di (s^2 + b1 s + a1)(s^2 + b2 s + a2)
-    p = np.polymul([1, *pol_lento], [1, *pol_veloce])
-    return p[1:]
-
-
-def scala_poli(poli, kappa):
-    # omega_n x kappa su tutti i canali; zeta alzato al minimo ammesso dal BS dove serve
-    nuovi = {}
-    for canale, (wn, zeta) in poli.items():
-        wn = wn*kappa
-        if canale != 'dfl_z':
-            zeta = max(zeta, zeta_min_bs(wn))
-        nuovi[canale] = (wn, zeta)
-    return nuovi
 
 
 # =====================================================================================

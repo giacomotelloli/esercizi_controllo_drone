@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Taratura dei controllori</title>
+<!-- Modello del rapporto: analisi/rapporto_taratura.py sostituisce il segnaposto dei dati e scrive doc/Taratura dei tre controllori.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400&display=swap">
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(', '\\)']], displayMath: [['$$', '$$']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<style>
+/* Stessi colori e caratteri di "Taratura del backstepping.html" */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f6;
+  --surface: #fcfcfd;
+  --fg: #15181d;
+  --fg2: #4a515b;
+  --muted: #7c848f;
+  --grid: #e1e4e8;
+  --axis: #b9bfc7;
+  --line: rgba(21, 24, 29, 0.11);
+  --accent: #1f5bb5;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #eda100;
+  --k1: #86b6ef;
+  --k2: #2a78d6;
+  --k3: #104281;
+  --crit: #d03b3b;
+  --good-ink: #006300;
+  --bad-ink: #a82828;
+  --wash: rgba(42, 120, 214, 0.07);
+  --invalid: rgba(208, 59, 59, 0.10);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+    --grid: #252a30; --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --k1: #1c5cab; --k2: #3987e5; --k3: #9ec5f4;
+    --crit: #e05a5a; --good-ink: #35b935; --bad-ink: #f07a7a;
+    --wash: rgba(57, 135, 229, 0.12); --invalid: rgba(224, 90, 90, 0.14);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+  --grid: #252a30; --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --k1: #1c5cab; --k2: #3987e5; --k3: #9ec5f4;
+  --crit: #e05a5a; --good-ink: #35b935; --bad-ink: #f07a7a;
+  --wash: rgba(57, 135, 229, 0.12); --invalid: rgba(224, 90, 90, 0.14);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.62 var(--f-body);
+  font-optical-sizing: auto;
+}
+[hidden] { display: none !important; }
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 44px;
+}
+.col { max-width: 720px; width: 100%; margin: 0 auto; display: grid; gap: 14px; min-width: 0; }
+.col > * { margin: 0; }
+.wide { width: 100%; display: grid; gap: 14px; min-width: 0; }
+section { display: grid; gap: 22px; min-width: 0; }
+
+h1, h2, h3 { font-family: var(--f-display); font-stretch: 88%; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 760; letter-spacing: -0.01em; }
+h2 { font-size: 27px; font-weight: 720; }
+h3 { font-size: 19px; font-weight: 680; margin-top: 8px; }
+.eyebrow { font: 600 12.5px/1.2 var(--f-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg2); }
+.sec-num { font: 500 14px var(--f-mono); color: var(--accent); display: block; margin-bottom: 6px; }
+.lede { font-size: 19.5px; line-height: 1.55; }
+.meta { font: 500 13px/1.5 var(--f-mono); color: var(--fg2); }
+p { text-wrap: pretty; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--wash); padding: 0.05em 0.35em; border-radius: 3px; }
+strong { font-weight: 600; }
+a { color: var(--accent); }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
+li::marker { color: var(--accent); }
+
+.note {
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  display: grid; gap: 6px;
+}
+.note > * { margin: 0; }
+.note.warn { border-left-color: var(--crit); }
+
+.math-block { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
+mjx-container[display="true"] { margin: 0.5em 0 !important; }
+
+dl.findings { margin: 0; display: grid; gap: 0; }
+dl.findings div { display: grid; grid-template-columns: 190px 1fr; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+dl.findings dt { font: 650 15px/1.4 var(--f-display); font-stretch: 92%; }
+dl.findings dd { margin: 0; }
+@media (max-width: 600px) { dl.findings div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Figure */
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 26px; }
+figure.fig { margin: 0; display: grid; gap: 8px; min-width: 0; align-content: start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px clamp(12px, 2.4vw, 20px) 14px; }
+figure.fig figcaption { display: grid; gap: 3px; }
+figure.fig figcaption b { font: 650 15.5px var(--f-display); font-stretch: 92%; }
+figure.fig figcaption span { font-size: 14.5px; color: var(--fg2); line-height: 1.45; }
+.plot { position: relative; width: 100%; min-width: 0; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font: 500 13px/1.4 var(--f-display); color: var(--fg2); }
+.legend span { white-space: nowrap; }
+@media (max-width: 520px) { .legend span { white-space: normal; } }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+.legend i.s1, .tip .key.s1 { border-color: var(--s1); }
+.legend i.s2, .tip .key.s2 { border-color: var(--s2); }
+.legend i.s3, .tip .key.s3 { border-color: var(--s3); }
+.legend i.s4, .tip .key.s4 { border-color: var(--s4); }
+.legend i.k1, .tip .key.k1 { border-color: var(--k1); }
+.legend i.k2, .tip .key.k2 { border-color: var(--k2); }
+.legend i.k3, .tip .key.k3 { border-color: var(--k3); }
+
+svg.chart { display: block; width: 100%; height: auto; overflow: visible; touch-action: pan-y; }
+svg.chart .grid { stroke: var(--grid); stroke-width: 1; }
+svg.chart .frame { fill: none; stroke: var(--axis); stroke-width: 1; }
+svg.chart .axisline { stroke: var(--axis); stroke-width: 1.2; }
+svg.chart .tick { fill: var(--muted); font: 11.5px var(--f-mono); font-variant-numeric: tabular-nums; }
+svg.chart .axlabel { fill: var(--fg2); font: 500 12.5px var(--f-display); }
+svg.chart .curve { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg.chart .curve.s1 { stroke: var(--s1); }
+svg.chart .curve.s2 { stroke: var(--s2); }
+svg.chart .curve.s3 { stroke: var(--s3); }
+svg.chart .curve.s4 { stroke: var(--s4); }
+svg.chart .curve.k1 { stroke: var(--k1); }
+svg.chart .curve.k2 { stroke: var(--k2); }
+svg.chart .curve.k3 { stroke: var(--k3); }
+svg.chart .mk, svg.chart .hdot { stroke: var(--surface); stroke-width: 2; }
+svg.chart .s1.mk, svg.chart .s1.hdot { fill: var(--s1); }
+svg.chart .s2.mk, svg.chart .s2.hdot { fill: var(--s2); }
+svg.chart .s3.mk, svg.chart .s3.hdot { fill: var(--s3); }
+svg.chart .s4.mk, svg.chart .s4.hdot { fill: var(--s4); }
+svg.chart .k1.hdot { fill: var(--k1); }
+svg.chart .k2.hdot { fill: var(--k2); }
+svg.chart .k3.hdot { fill: var(--k3); }
+svg.chart .ink.mk, svg.chart .ink.hdot { fill: var(--fg); }
+svg.chart .crit { fill: none; stroke: var(--crit); stroke-width: 2; }
+svg.chart .note { fill: var(--fg); font: 500 12px var(--f-mono); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+svg.chart .note.soft { fill: var(--fg2); font-family: var(--f-display); font-size: 12px; }
+svg.chart .thr { stroke: var(--fg2); stroke-width: 1; opacity: 0.7; }
+svg.chart .invalid { fill: var(--invalid); }
+svg.chart .hit { fill: transparent; pointer-events: all; cursor: crosshair; outline: none; }
+svg.chart .hit:focus-visible { stroke: var(--accent); stroke-width: 2; }
+svg.chart .cross { stroke: var(--fg2); stroke-width: 1; }
+.tip {
+  position: absolute; z-index: 2; pointer-events: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 7px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  padding: 7px 10px; display: grid; gap: 3px; min-width: 130px; max-width: 320px;
+  font: 12.5px/1.35 var(--f-display); color: var(--fg2);
+}
+.tip .hd { font: 500 12px var(--f-mono); color: var(--fg2); }
+.tip .row { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.tip .row b { font: 500 13px var(--f-mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+.tip .key { width: 14px; border-top: 2px solid; flex: none; }
+
+/* Tabelle */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 13px/1.35 var(--f-display); color: var(--fg2); letter-spacing: 0.02em; background: var(--bg); }
+td.num { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.wrapnum { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; }
+td.sub { color: var(--fg2); font-size: 14px; }
+tr:last-child td { border-bottom: 0; }
+tr.grp td { background: var(--wash); font: 600 13px var(--f-display); color: var(--fg2); }
+.pill { display: inline-block; font: 500 12.5px var(--f-mono); padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.pill.ok { color: var(--good-ink); background: color-mix(in srgb, var(--good-ink) 11%, transparent); }
+.pill.bad { color: var(--bad-ink); background: color-mix(in srgb, var(--bad-ink) 11%, transparent); }
+.pill.ok::before { content: "✓ "; }
+.pill.bad::before { content: "✕ "; }
+details.tv > summary, details.more > summary { cursor: pointer; font: 500 13px var(--f-display); color: var(--accent); list-style-position: inside; }
+details.tv[open] > summary, details.more[open] > summary { margin-bottom: 8px; }
+details.tv table { font-size: 13px; }
+details.tv td { padding: 4px 10px; }
+.cap { font-size: 14.5px; color: var(--fg2); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* Aggiunte per la pagina della taratura */
+section > *, .wide > *, .col > *, .card > *, .cards > * { min-width: 0; }   /* le tabelle larghe scorrono nel loro riquadro, la pagina no */
+svg.chart .curve.tratt { stroke-dasharray: 7 5; }
+.legend i.tratt, .tip .key.tratt { border-top-style: dashed; }
+svg.chart .fascia { fill: var(--wash); }
+svg.chart .fascia-bordo { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.7; }
+svg.chart .asse0 { stroke: var(--axis); stroke-width: 1.2; }
+svg.chart .anello { fill: none; stroke-width: 1.6; }
+svg.chart .anello.s1 { stroke: var(--s1); }
+svg.chart .anello.s2 { stroke: var(--s2); }
+svg.chart .anello.s3 { stroke: var(--s3); }
+svg.chart .anello.s4 { stroke: var(--s4); }
+svg.chart .anello.k3 { stroke: var(--k3); }
+svg.chart .k3.mk { fill: var(--k3); }
+svg.chart .motore { stroke: var(--fg); stroke-width: 2.4; stroke-linecap: round; }
+svg.chart .polo-hit { fill: transparent; pointer-events: all; cursor: pointer; outline: none; }
+svg.chart .polo-hit:focus-visible { stroke: var(--accent); stroke-width: 2; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr)); gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px clamp(12px, 2.4vw, 20px); display: grid; gap: 12px; align-content: start; min-width: 0; }
+.card > * { margin: 0; }
+.card h3 { margin: 0; }
+.card .table-wrap { border-radius: 6px; }
+.card ul { font-size: 15.5px; }
+pre.codice { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.55 var(--f-mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="col">
+  <div class="eyebrow">Elective in Robotics · confronto BS / DFL / GEO · FASE 1</div>
+  <h1>Taratura dei tre controllori</h1>
+  <p class="lede">Come si passa dal modello lineare del PDF 09 ai guadagni di backstepping, linearizzazione dinamica e controllo geometrico, e quali valori escono. Il criterio è uno solo: in hover i tre controllori hanno gli stessi poli in anello chiuso, quindi sul modello lineare le loro risposte coincidono.</p>
+  <p class="meta" id="meta"></p>
+  <div class="note">
+    <p><strong>Da dove vengono i numeri.</strong> I poli stanno in <code>comune/taratura.py</code>, che calcola anche i guadagni. <code>analisi/rapporto_taratura.py</code> calcola margini e risposte con <code>analisi/lineare.py</code> e scrive questa pagina. Tutto viene dal modello lineare: nessuna simulazione.</p>
+  </div>
+</header>
+
+<!-- ============================================================ 1 -->
+<section class="col" id="sintesi">
+  <div><span class="sec-num">1</span><h2>In sintesi</h2></div>
+  <dl class="findings">
+    <div><dt>Il modello</dt><dd>Quello semplificato della slide 2 del PDF 09: senza aerodinamica né effetti giroscopici, a piccoli angoli. In hover si riduce a quattro catene di integratori disaccoppiate.</dd></div>
+    <div><dt>Il criterio</dt><dd>Gli stessi poli per i tre controllori. Su x, y e ψ le tre leggi linearizzate diventano così <strong>la stessa legge</strong>. Sulla quota il DFL ha due poli in più, che vanno scelti a parte.</dd></div>
+    <div><dt>I poli</dt><dd>x, y in <span data-p="canale.xy.poli"></span>; z in <span data-p="canale.z.poli"></span>; φ, θ in <span data-p="canale.att.poli" data-d="0"></span>; ψ in <span data-p="canale.psi.poli" data-d="0"></span>; coppia in più del DFL in <span data-p="canale.dfl_z.poli" data-d="0"></span>.</dd></div>
+    <div><dt>Le risposte</dt><dd>Gradino di 10 cm su x: BS/GEO e DFL differiscono al massimo di <span data-v="gradino_x.dist_mm" data-d="2"></span> mm. Gradino di 0.5 m su z: <span data-v="gradino_z.dist_mm" data-d="0"></span> mm, per i due poli in più del DFL.</dd></div>
+    <div><dt>I margini</dt><dd>Con motore e campionamento: anello d'assetto <span data-v="margini.att.pm"></span>°; asse x all'attuatore <span data-v="margini.x_bs.pm"></span>° per BS/GEO e <span data-v="margini.x_dfl.pm"></span>° per il DFL; quota <span data-v="margini.z_bs.pm"></span>° per BS/GEO e <span data-v="margini.z_dfl.pm"></span>° per il DFL.</dd></div>
+    <div><dt>Nel codice</dt><dd><code>taratura.parametri(nome, m, J, T_max, dt)</code> restituisce gli argomenti del costruttore di ciascun controllore. I guadagni del BS coincidono con quelli scritti a mano in <code>main_hover.py</code>: <span id="pill-main"></span></dd></div>
+  </dl>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="col" id="modello">
+  <div><span class="sec-num">2</span><h2>Il modello del PDF 09</h2></div>
+  <p>La slide 2 («simplified model for PID control design») dà il modello su cui si progettano i controllori, con tre ipotesi:</p>
+  <ul>
+    <li>aerodinamica ed effetti giroscopici trascurabili;</li>
+    <li>\(\phi\) e \(\theta\) piccoli, quindi \((\dot\phi, \dot\theta, \dot\psi) \simeq (p, q, r)\);</li>
+    <li>drone simmetrico e disturbi trascurabili.</li>
+  </ul>
+  <p>Nella slide l'asse z punta verso il basso. Nel progetto punta verso l'alto, come nel <code>Drone</code> e nei tre controllori, e cambiano solo i segni:</p>
+  <div class="math-block">$$\ddot x = (\cos\psi\sin\theta\cos\phi + \sin\psi\sin\phi)\,\frac{T}{m},\qquad \ddot y = (\sin\psi\sin\theta\cos\phi - \cos\psi\sin\phi)\,\frac{T}{m},\qquad \ddot z = \cos\theta\cos\phi\,\frac{T}{m} - g$$</div>
+  <div class="math-block">$$\ddot\phi = \frac{\tau_\phi}{I_x},\qquad \ddot\theta = \frac{\tau_\theta}{I_y},\qquad \ddot\psi = \frac{\tau_\psi}{I_z}$$</div>
+
+  <h3>In hover</h3>
+  <p>Attorno a \(\phi = \theta = \psi = 0\), con \(T = mg + \delta T\), al primo ordine:</p>
+  <div class="math-block">$$\ddot x = g\,\theta,\qquad \ddot y = -g\,\phi,\qquad \ddot z = \frac{\delta T}{m}$$</div>
+  <p>Restano quattro catene disaccoppiate:</p>
+  <ul>
+    <li><strong>x e y</strong>: quattro integratori, \(x \to \dot x \to \theta \to \dot\theta\), con il solo ingresso \(\tau_\theta\) (per y, \(\phi\) e \(\tau_\phi\));</li>
+    <li><strong>z e ψ</strong>: doppi integratori, con ingresso \(\delta T\) e \(\tau_\psi\).</li>
+  </ul>
+  <p>I tre controllori calcolano un'accelerazione e la moltiplicano per \(m\) o per \(J\), quindi massa e inerzia si semplificano: i poli in anello chiuso non dipendono dal drone.</p>
+
+  <h3>Quello che il modello non contiene</h3>
+  <p>Il motore (\(\tau_m\) = <span data-v="meta.tau_m_ms" data-d="0"></span> ms, cioè un polo in −50) e il campionamento (\(T_c\) = <span data-v="meta.T_c_ms" data-d="0"></span> ms, circa mezzo passo di ritardo). Nessun controllore li conosce, quindi non entrano nell'assegnamento dei poli. Entrano però nella scelta di quanto farli veloci, attraverso i margini di stabilità (§4).</p>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="col" id="procedimento">
+  <div><span class="sec-num">3</span><h2>Il procedimento</h2></div>
+  <ol>
+    <li><strong>Linearizzare</strong> il modello in hover (§2).</li>
+    <li><strong>Linearizzare ogni legge</strong> sullo stesso modello e scriverne il polinomio caratteristico in funzione dei guadagni (qui sotto).</li>
+    <li><strong>Scegliere i poli</strong> di ogni canale, uguali per i tre, come un polinomio \(s^2 + \beta s + \alpha\) con \(\beta = 2\zeta\omega_n\) e \(\alpha = \omega_n^2\) (§4).</li>
+    <li><strong>Invertire</strong>: dai poli ai guadagni di ciascun controllore (§5).</li>
+    <li><strong>Controllare</strong> sul modello lineare, con motore e campionamento, i margini e le risposte (§6).</li>
+  </ol>
+
+  <h3>Backstepping (slide 5)</h3>
+  <p>Per la quota la slide 5 dà</p>
+  <div class="math-block">$$T = \frac{m}{\cos\phi\cos\theta}\Big(g + \ddot z_d + (1 + K_{zp}K_{zd})\,e_z + (K_{zp} + K_{zd})\,\dot e_z\Big)$$</div>
+  <p>e la stessa struttura per l'assetto. Con \(k_1 = K_{zp}\), \(k_2 = K_{zd}\) ed \(e = z_d - z\), il canale chiuso è</p>
+  <div class="math-block">$$\ddot e + (k_1 + k_2)\,\dot e + (1 + k_1 k_2)\,e = 0\qquad\Longrightarrow\qquad k_1 + k_2 = \beta,\qquad 1 + k_1 k_2 = \alpha$$</div>
+  <p>Sull'asse x la posizione chiede \(\theta_d = \mu_x/g\) e l'assetto insegue \(\theta_d\). Con le derivate di \(\theta_d\) esatte il sistema è triangolare a blocchi, e il polinomio è il prodotto di quelli dei due canali:</p>
+  <div class="math-block">$$(s^2 + \beta_p s + \alpha_p)(s^2 + \beta_a s + \alpha_a)$$</div>
+  <p>Nel codice le derivate sono filtrate con \(\tau_f\) = <span data-v="meta.tau_f_ms" data-d="0"></span> ms, e la risposta si sposta di <span data-v="gradino_x.filtro_mm" data-d="2"></span> mm su 100 (§6).</p>
+
+  <h3>Linearizzazione dinamica (slide 6)</h3>
+  <p>Il compensatore \(\zeta = (T, \dot T)\) rende \(\ddot T\) un ingresso, e la legge \(\tilde u = J^{-1}(-l + v)\) impone alle uscite</p>
+  <div class="math-block">$$x^{(4)} = x_d^{(4)} + c_3\,e^{(3)} + c_2\,\ddot e + c_1\,\dot e + c_0\,e,\qquad \ddot\psi = \ddot\psi_d + c_1\,\dot e_\psi + c_0\,e_\psi$$</div>
+  <p>e lo stesso per y e z. L'errore ha il polinomio \(s^4 + c_3 s^3 + c_2 s^2 + c_1 s + c_0\), e non solo in hover: la cancellazione è esatta ovunque, tranne a \(T = 0\). Per avere i poli del BS i \(c_i\) sono i coefficienti del prodotto:</p>
+  <div class="math-block">$$s^4 + c_3 s^3 + c_2 s^2 + c_1 s + c_0 = (s^2 + \beta_p s + \alpha_p)(s^2 + \beta_a s + \alpha_a)$$</div>
+  <p>Sulla quota il DFL ha quattro poli, mentre BS e GEO ne hanno due: i due in più sono l'unica scelta che il criterio non fissa (§4).</p>
+
+  <h3>Controllo geometrico (slide 05, Lee, Leok e McClamroch)</h3>
+  <p>Nel PDF 09 non c'è, ma si linearizza sullo stesso modello. In hover \(e_R \approx \eta - \eta_d\) e \(f \approx m(g + \ddot z)\):</p>
+  <div class="math-block">$$m\,\ddot e + K_v\,\dot e + K_x\,e = 0,\qquad I_i\,\ddot e_{R,i} + K_{\Omega,i}\,\dot e_{R,i} + K_{R,i}\,e_{R,i} = 0$$</div>
+  <div class="math-block">$$\Longrightarrow\qquad K_x = m\,\alpha_p,\qquad K_v = m\,\beta_p,\qquad K_R = I\,\alpha_a,\qquad K_\Omega = I\,\beta_a$$</div>
+  <p>È la stessa cascata del BS, con \(\Omega_d, \dot\Omega_d\) al posto di \(\dot\theta_d, \ddot\theta_d\), filtrate allo stesso modo. Due differenze dagli altri due:</p>
+  <ul>
+    <li>i guadagni sono <strong>fisici</strong>, quindi vanno moltiplicati per \(m\) e \(J\) del drone;</li>
+    <li>sono <strong>matrici diagonali</strong>: con guadagni scalari, come nell'articolo, quota e yaw non potrebbero avere poli diversi da x, y e da rollio e beccheggio.</li>
+  </ul>
+
+  <h3>Stessi poli, stessa legge</h3>
+  <p>Sull'asse x ognuna delle tre leggi linearizzate è \(\tau_\theta / I_y = K\,(x, \dot x, \theta, \dot\theta)^T\). La catena ha un solo ingresso, quindi il polinomio caratteristico fissa \(K\) in modo unico (formula di Ackermann). Con gli stessi poli, il BS con derivate esatte (e quindi il GEO) e il DFL danno lo stesso vettore:</p>
+  <div id="t-K"></div>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="wide" id="poli">
+  <div class="col">
+    <div><span class="sec-num">4</span><h2>La scelta dei poli</h2></div>
+    <p>I poli sono comuni ai tre controllori, quindi devono rispettare i vincoli di tutti:</p>
+    <dl class="findings">
+      <div><dt>Il BS deve esistere</dt><dd>\(k_1, k_2\) sono le radici di \(k^2 - \beta k + (\alpha - 1) = 0\), reali e positive solo se \(\omega_n > 1\) e \(\zeta \ge \sqrt{1 - 1/\omega_n^2}\). Detto sul piano: i poli complessi devono avere <strong>parte immaginaria al massimo 1 rad/s</strong> (la fascia nel grafico). DFL e GEO non hanno questo vincolo, ma devono usare gli stessi poli.</dd></div>
+      <div><dt>Motore e campionamento</dt><dd>Tolgono fase, e ne tolgono di più quanto più l'anello è veloce. La specifica è un margine di fase di almeno 50° sull'anello d'assetto, con entrambi inclusi. Con \(\zeta = 1\) vale fino a \(\omega_n\) = <span data-v="wn_max_att"></span> rad/s, e si sceglie 9.</dd></div>
+      <div><dt>Separazione</dt><dd>La posizione circa 6 volte più lenta dell'assetto (\(\omega_n\) = 1.58 contro 9), con \(\zeta\) appena sopra il minimo ammesso dal BS. Quota e yaw stanno in mezzo. Sono i poli dei guadagni di <code>main_hover.py</code>, scelti sulla carta di Nichols in <em>Taratura del backstepping</em>.</dd></div>
+    </dl>
+  </div>
+  <figure class="fig">
+    <figcaption><b>I poli scelti nel piano complesso</b><span>Parte reale in scala logaritmica. La fascia è la zona in cui il BS ammette poli complessi. Il polo del motore (−50) non è assegnabile: è il riferimento per quanto possono essere veloci gli altri.</span></figcaption>
+    <div id="g-mappa"></div>
+  </figure>
+  <div id="t-poli"></div>
+
+  <div class="col">
+    <h3>La coppia in più del DFL sulla quota</h3>
+    <p>Sulla quota il DFL chiude \(z^{(4)}\) con \((s^2 + 5s + 7)(s^2 + \beta_e s + \alpha_e)\). Più la seconda coppia è veloce, più la sua risposta si avvicina a quella di BS e GEO, e anche il margine cresce.</p>
+    <p>Si sceglie <strong>la coppia più lenta che rispetta i 50°, arrotondata: −20 doppio</strong>. Più veloce le risposte si avvicinano di poco, per esempio a −25 doppio di <span data-v="scelta_dfl_z.righe.4.dist_mm" data-d="0"></span> mm invece di <span data-v="scelta_dfl_z.righe.3.dist_mm" data-d="0"></span>. Però i poli si avvicinano a quello del motore, in −50, che il compensatore non vede, perché integra la spinta comandata e non quella realizzata.</p>
+  </div>
+  <div id="t-dfl-z"></div>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="wide" id="valori">
+  <div class="col">
+    <div><span class="sec-num">5</span><h2>I valori finali</h2></div>
+    <p>Sono quelli che <code>comune/taratura.py</code> calcola dai poli del §4. BS e DFL hanno guadagni che non dipendono dal drone; il GEO ha guadagni fisici, che si calcolano con \(m\) e \(J\) letti dalla scena quando si crea il <code>Drone</code>.</p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <h3>Backstepping</h3>
+      <div id="t-bs"></div>
+      <ul>
+        <li><code>tau_filtro</code> = <span data-v="meta.tau_f" data-d="2"></span> s: derivate di \(\phi_d, \theta_d\) filtrate</li>
+        <li><code>angolo_max</code> = <span data-v="meta.angolo_max" data-d="0"></span>°, <code>T_max</code> = spinta massima fisica</li>
+        <li>\(F_z \ge\) <span data-v="meta.frazione_T_min"></span> \(mg\), già nel codice</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Linearizzazione dinamica</h3>
+      <div id="t-dfl"></div>
+      <ul>
+        <li>compensatore con \(\zeta(0) = (mg, 0)\)</li>
+        <li><code>T_min</code> = <span data-v="meta.frazione_T_min"></span> \(mg\)</li>
+        <li>nessun filtro: usa jerk e snap del riferimento</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Controllo geometrico</h3>
+      <div id="t-geo"></div>
+      <ul>
+        <li><code>tau_filtro</code> = <span data-v="meta.tau_f" data-d="2"></span> s: \(\Omega_d, \dot\Omega_d\) filtrate come nel BS</li>
+        <li><code>T_min</code> = <span data-v="meta.frazione_T_min"></span> \(mg\), <code>direzione_yaw</code> = <code>'zyx'</code></li>
+        <li>nello scenario B si ricalcolano con la massa nuova: i poli restano gli stessi</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="wide" id="risposte">
+  <div class="col">
+    <div><span class="sec-num">6</span><h2>Le risposte previste</h2></div>
+    <p>Sul modello lineare con motore e campionamento, nel modello discreto che segue l'ordine del ciclo di controllo. Sono le previsioni con cui si confronterà T1-N1 in CoppeliaSim (FASE 4).</p>
+  </div>
+  <div class="figs">
+    <figure class="fig">
+      <figcaption><b>Gradino di 10 cm su x</b><span>Le curve si sovrappongono: distanza massima <span data-v="gradino_x.dist_mm" data-d="2"></span> mm, tutta dovuta al filtro sulle derivate di BS e GEO. Entro 5 mm in <span data-v="gradino_x.t_5mm" data-d="2"></span> s, sovraelongazione <span data-v="gradino_x.sovra_mm" data-d="1"></span> mm, inclinazione massima <span data-v="gradino_x.incl_max" data-d="2"></span>°.</span></figcaption>
+      <div id="g-x"></div>
+    </figure>
+    <figure class="fig">
+      <figcaption><b>Gradino di 0.5 m su z</b><span>Qui il DFL ha due poli in più ed è un po' più lento: entro il 5% in <span data-v="gradino_z.t_5_dfl" data-d="2"></span> s contro <span data-v="gradino_z.t_5" data-d="2"></span> s, distanza massima <span data-v="gradino_z.dist_mm" data-d="0"></span> mm. Nessuno dei due ha sovraelongazione.</span></figcaption>
+      <div id="g-z"></div>
+    </figure>
+  </div>
+  <div class="col">
+    <h3>Margini di stabilità</h3>
+    <p>Anello aperto all'attuatore, con il motore e mezzo passo di ritardo. Sugli assi in cui la legge è la stessa i margini coincidono; sull'asse x il DFL ha qualche grado in più perché usa le derivate esatte, mentre BS e GEO le filtrano.</p>
+  </div>
+  <div id="t-margini"></div>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="col" id="uso">
+  <div><span class="sec-num">7</span><h2>Come si usa</h2></div>
+  <p>Dopo aver creato il <code>Drone</code>, che legge \(m\) e \(J\) dalla scena:</p>
+  <pre class="codice">from comune import taratura
+
+drone = Drone(sim, '/Quadcopter', PARAM_MOTORI)
+m, J, T_max, dt = drone.massa, drone.J, drone.T_max, drone.dt
+
+bs  = ControlloreBackstepping(**taratura.parametri('BS', m, J, T_max, dt))
+dfl = ControlloreDFL(**taratura.parametri('DFL', m, J, T_max, dt))
+geo = ControlloreGeometrico(**taratura.parametri('GEO', m, J, T_max, dt))</pre>
+  <ul>
+    <li><code>python -m comune.taratura</code> stampa poli e guadagni, e controlla che quelli del BS siano quelli di <code>main_hover.py</code>.</li>
+    <li><code>python analisi/rapporto_taratura.py</code> rigenera questa pagina. Se cambiano i poli in <code>taratura.py</code>, tabelle e grafici si aggiornano; il testo resta quello scritto per questi poli.</li>
+    <li>Per cambiare la taratura si cambiano solo i poli in <code>POLI</code>; nessun guadagno è scritto a mano. <code>scala_poli(POLI, κ)</code> serve alla FASE 7.</li>
+    <li><code>main_hover.py</code> ha ancora i guadagni scritti a mano (gli stessi), <code>angolo_max</code> a 25° e nessun <code>tau_filtro</code>: va aggiornato quando lo usi per la FASE 4.</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+(function () {
+'use strict';
+const D = {"meta":{"data":"2026-11-08","commit":"3764356","sporco":true,"g":9.81,"tau_m":0.02,"T_c":0.005,"tau_f":0.02,"tau_m_ms":20.0,"T_c_ms":5.0,"tau_f_ms":20.0,"angolo_max":80.0,"frazione_T_min":0.1},"canali":[{"id":"xy","nome":"x, y","wn":1.581,"zeta":0.7906,"beta":2.5,"alpha":2.5,"zeta_min":0.7746,"poli":[[-1.25,0.9682],[-1.25,-0.9682]]},{"id":"z","nome":"z","wn":2.646,"zeta":0.9449,"beta":5.0,"alpha":7.0,"zeta_min":0.9258,"poli":[[-2.5,0.866],[-2.5,-0.866]]},{"id":"att","nome":"φ, θ","wn":9.0,"zeta":1.0,"beta":18.0,"alpha":81.0,"zeta_min":0.9938,"poli":[[-9.0,0.0],[-9.0,0.0]]},{"id":"psi","nome":"ψ","wn":5.0,"zeta":1.0,"beta":10.0,"alpha":25.0,"zeta_min":0.9798,"poli":[[-5.0,0.0],[-5.0,0.0]]},{"id":"dfl_z","nome":"z, coppia in più del DFL","wn":20.0,"zeta":1.0,"beta":40.0,"alpha":400.0,"zeta_min":null,"poli":[[-20.0,0.0],[-20.0,0.0]]}],"canale":{"xy":{"id":"xy","nome":"x, y","wn":1.581,"zeta":0.7906,"beta":2.5,"alpha":2.5,"zeta_min":0.7746,"poli":[[-1.25,0.9682],[-1.25,-0.9682]]},"z":{"id":"z","nome":"z","wn":2.646,"zeta":0.9449,"beta":5.0,"alpha":7.0,"zeta_min":0.9258,"poli":[[-2.5,0.866],[-2.5,-0.866]]},"att":{"id":"att","nome":"φ, θ","wn":9.0,"zeta":1.0,"beta":18.0,"alpha":81.0,"zeta_min":0.9938,"poli":[[-9.0,0.0],[-9.0,0.0]]},"psi":{"id":"psi","nome":"ψ","wn":5.0,"zeta":1.0,"beta":10.0,"alpha":25.0,"zeta_min":0.9798,"poli":[[-5.0,0.0],[-5.0,0.0]]},"dfl_z":{"id":"dfl_z","nome":"z, coppia in più del DFL","wn":20.0,"zeta":1.0,"beta":40.0,"alpha":400.0,"zeta_min":null,"poli":[[-20.0,0.0],[-20.0,0.0]]}},"bs":{"x":[1.0,1.5],"y":[1.0,1.5],"z":[2.0,3.0],"phi":[8.0,10.0],"theta":[8.0,10.0],"psi":[4.0,6.0]},"bs_uguale_main":true,"dfl":{"x":[20.5,128.5,247.5,202.5],"y":[20.5,128.5,247.5,202.5],"z":[45.0,607.0,2280.0,2800.0],"psi":[10.0,25.0]},"geo_n":{"kx":[2.5,2.5,7.0],"kv":[2.5,2.5,5.0],"kR":[81.0,81.0,25.0],"kOmega":[18.0,18.0,10.0]},"K_x":{"bs_esatte":[-20.64,-25.23,-128.5,-20.5],"dfl":[-20.64,-25.23,-128.5,-20.5]},"margini":{"att":{"pm":53.77,"wc":17.54,"gm":26.26,"wg":131.6,"gm_inf":null},"x_bs":{"pm":43.28,"wc":18.53,"gm":26.03,"wg":128.3,"gm_inf":-17.9},"x_dfl":{"pm":47.61,"wc":19.48,"gm":24.78,"wg":128.7,"gm_inf":-18.33},"pos_bs":{"pm":69.64,"wc":2.749,"gm":18.48,"wg":27.98,"gm_inf":null},"z_bs":{"pm":68.18,"wc":5.154,"gm":37.98,"wg":136.4,"gm_inf":null},"z_dfl":{"pm":51.03,"wc":3.865,"gm":15.71,"wg":16.36,"gm_inf":null},"psi":{"pm":63.23,"wc":10.1,"gm":31.76,"wg":134.7,"gm_inf":null}},"wn_max_att":10.78,"scelta_dfl_z":{"righe":[{"lam":9.0,"dist_mm":109.1,"t_5":1.875,"pm":44.14,"gm":13.3,"u_max":1.323,"scelta":false},{"lam":15.0,"dist_mm":69.72,"t_5":1.775,"pm":48.38,"gm":14.75,"u_max":1.759,"scelta":false},{"lam":18.0,"dist_mm":58.82,"t_5":1.75,"pm":50.05,"gm":15.35,"u_max":1.916,"scelta":false},{"lam":20.0,"dist_mm":53.21,"t_5":1.735,"pm":51.03,"gm":15.71,"u_max":2.005,"scelta":true},{"lam":25.0,"dist_mm":42.88,"t_5":1.715,"pm":53.08,"gm":16.51,"u_max":2.191,"scelta":false},{"lam":30.0,"dist_mm":35.86,"t_5":1.7,"pm":54.71,"gm":17.19,"u_max":2.338,"scelta":false},{"lam":40.0,"dist_mm":26.95,"t_5":1.685,"pm":57.12,"gm":18.33,"u_max":2.554,"scelta":false}],"bs":{"t_5":1.635,"u_max":3.5}},"gradino_x":{"t":[0.0,0.02,0.04,0.06,0.08,0.1,0.12,0.14,0.16,0.18,0.2,0.22,0.24,0.26,0.28,0.3,0.32,0.34,0.36,0.38,0.4,0.42,0.44,0.46,0.48,0.5,0.52,0.54,0.56,0.58,0.6,0.62,0.64,0.66,0.68,0.7,0.72,0.74,0.76,0.78,0.8,0.82,0.84,0.86,0.88,0.9,0.92,0.94,0.96,0.98,1.0,1.02,1.04,1.06,1.08,1.1,1.12,1.14,1.16,1.18,1.2,1.22,1.24,1.26,1.28,1.3,1.32,1.34,1.36,1.38,1.4,1.42,1.44,1.46,1.48,1.5,1.52,1.54,1.56,1.58,1.6,1.62,1.64,1.66,1.68,1.7,1.72,1.74,1.76,1.78,1.8,1.82,1.84,1.86,1.88,1.9,1.92,1.94,1.96,1.98,2.0,2.02,2.04,2.06,2.08,2.1,2.12,2.14,2.16,2.18,2.2,2.22,2.24,2.26,2.28,2.3,2.32,2.34,2.36,2.38,2.4,2.42,2.44,2.46,2.48,2.5,2.52,2.54,2.56,2.58,2.6,2.62,2.64,2.66,2.68,2.7,2.72,2.74,2.76,2.78,2.8,2.82,2.84,2.86,2.88,2.9,2.92,2.94,2.96,2.98,3.0,3.02,3.04,3.06,3.08,3.1,3.12,3.14,3.16,3.18,3.2,3.22,3.24,3.26,3.28,3.3,3.32,3.34,3.36,3.38,3.4,3.42,3.44,3.46,3.48,3.5,3.52,3.54,3.56,3.58,3.6,3.62,3.64,3.66,3.68,3.7,3.72,3.74,3.76,3.78,3.8,3.82,3.84,3.86,3.88,3.9,3.92,3.94,3.96,3.98,4.0,4.02,4.04,4.06,4.08,4.1,4.12,4.14,4.16,4.18,4.2,4.22,4.24,4.26,4.28,4.3,4.32,4.34,4.36,4.38,4.4,4.42,4.44,4.46,4.48,4.5,4.52,4.54,4.56,4.58,4.6,4.62,4.64,4.66,4.68,4.7,4.72,4.74,4.76,4.78,4.8,4.82,4.84,4.86,4.88,4.9,4.92,4.94,4.96,4.98,5.0,5.02,5.04,5.06,5.08,5.1,5.12,5.14,5.16,5.18,5.2,5.22,5.24,5.26,5.28,5.3,5.32,5.34,5.36,5.38,5.4,5.42,5.44,5.46,5.48,5.5,5.52,5.54,5.56,5.58,5.6,5.62,5.64,5.66,5.68,5.7,5.72,5.74,5.76,5.78,5.8,5.82,5.84,5.86,5.88,5.9,5.92,5.94,5.96,5.98,6.0,6.02,6.04,6.06,6.08,6.1,6.12,6.14,6.16,6.18,6.2,6.22,6.24,6.26,6.28,6.3,6.32,6.34,6.36,6.38,6.4,6.42,6.44,6.46,6.48,6.5,6.52,6.54,6.56,6.58,6.6,6.62,6.64,6.66,6.68,6.7,6.72,6.74,6.76,6.78,6.8,6.82,6.84,6.86,6.88,6.9,6.92,6.94,6.96,6.98,7.0,7.02,7.04,7.06,7.08,7.1,7.12,7.14,7.16,7.18,7.2,7.22,7.24,7.26,7.28,7.3,7.32,7.34,7.36,7.38,7.4,7.42,7.44,7.46,7.48,7.5,7.52,7.54,7.56,7.58,7.6,7.62,7.64,7.66,7.68,7.7,7.72,7.74,7.76,7.78,7.8,7.82,7.84,7.86,7.88,7.9,7.92,7.94,7.96,7.98,8.0,8.02,8.04,8.06,8.08,8.1,8.12,8.14,8.16,8.18,8.2,8.22,8.24,8.26,8.28,8.3,8.32,8.34,8.36,8.38,8.4,8.42,8.44,8.46,8.48,8.5,8.52,8.54,8.56,8.58,8.6,8.62,8.64,8.66,8.68,8.7,8.72,8.74,8.76,8.78,8.8,8.82,8.84,8.86,8.88,8.9,8.92,8.94,8.96,8.98,9.0,9.02,9.04,9.06,9.08,9.1,9.12,9.14,9.16,9.18,9.2,9.22,9.24,9.26,9.28,9.3,9.32,9.34,9.36,9.38,9.4,9.42,9.44,9.46,9.48,9.5,9.52,9.54,9.56,9.58,9.6,9.62,9.64,9.66,9.68,9.7,9.72,9.74,9.76,9.78,9.8,9.82,9.84,9.86,9.88,9.9,9.92,9.94,9.96,9.98,10.0],"bs":[100.0,100.0,100.0,100.0,99.98,99.96,99.91,99.84,99.73,99.58,99.39,99.15,98.86,98.51,98.11,97.66,97.15,96.59,95.98,95.32,94.61,93.86,93.06,92.21,91.33,90.41,89.45,88.45,87.43,86.37,85.28,84.17,83.03,81.88,80.7,79.5,78.29,77.06,75.82,74.56,73.3,72.03,70.75,69.47,68.18,66.89,65.6,64.31,63.02,61.73,60.45,59.17,57.9,56.63,55.38,54.13,52.88,51.65,50.43,49.22,48.02,46.83,45.66,44.5,43.35,42.22,41.1,40.0,38.91,37.84,36.78,35.74,34.72,33.71,32.72,31.75,30.79,29.85,28.92,28.02,27.13,26.26,25.4,24.56,23.74,22.94,22.15,21.38,20.63,19.9,19.18,18.47,17.79,17.12,16.46,15.83,15.2,14.6,14.01,13.43,12.87,12.32,11.79,11.28,10.77,10.29,9.811,9.351,8.903,8.469,8.047,7.639,7.243,6.859,6.487,6.127,5.779,5.442,5.116,4.801,4.497,4.203,3.919,3.646,3.382,3.128,2.883,2.647,2.42,2.202,1.992,1.791,1.597,1.412,1.234,1.063,0.9002,0.744,0.5947,0.4521,0.3159,0.1861,0.06233,-0.05546,-0.1675,-0.2739,-0.3749,-0.4707,-0.5613,-0.6471,-0.728,-0.8044,-0.8762,-0.9438,-1.007,-1.066,-1.122,-1.174,-1.222,-1.266,-1.307,-1.345,-1.38,-1.412,-1.441,-1.467,-1.49,-1.511,-1.53,-1.546,-1.559,-1.571,-1.581,-1.588,-1.594,-1.598,-1.6,-1.601,-1.6,-1.597,-1.593,-1.588,-1.582,-1.574,-1.565,-1.555,-1.544,-1.533,-1.52,-1.506,-1.492,-1.477,-1.461,-1.445,-1.428,-1.41,-1.392,-1.374,-1.355,-1.335,-1.316,-1.296,-1.276,-1.255,-1.235,-1.214,-1.193,-1.172,-1.15,-1.129,-1.108,-1.086,-1.065,-1.044,-1.023,-1.001,-0.9801,-0.959,-0.938,-0.9172,-0.8964,-0.8759,-0.8554,-0.8352,-0.8151,-0.7953,-0.7756,-0.7561,-0.7369,-0.7179,-0.6991,-0.6806,-0.6623,-0.6443,-0.6265,-0.609,-0.5918,-0.5748,-0.5581,-0.5417,-0.5255,-0.5097,-0.4941,-0.4788,-0.4638,-0.449,-0.4346,-0.4204,-0.4065,-0.3929,-0.3796,-0.3666,-0.3539,-0.3414,-0.3292,-0.3173,-0.3057,-0.2943,-0.2832,-0.2724,-0.2618,-0.2515,-0.2414,-0.2317,-0.2221,-0.2128,-0.2038,-0.195,-0.1865,-0.1781,-0.17,-0.1622,-0.1546,-0.1472,-0.14,-0.133,-0.1262,-0.1197,-0.1133,-0.1072,-0.1012,-0.09544,-0.08986,-0.08447,-0.07925,-0.07422,-0.06936,-0.06466,-0.06014,-0.05577,-0.05157,-0.04751,-0.04361,-0.03986,-0.03625,-0.03278,-0.02945,-0.02625,-0.02318,-0.02024,-0.01742,-0.01472,-0.01214,-0.009668,-0.00731,-0.005059,-0.002913,-0.0008677,0.001079,0.002931,0.004689,0.006358,0.007941,0.009438,0.01085,0.01219,0.01345,0.01464,0.01575,0.0168,0.01778,0.01869,0.01955,0.02034,0.02107,0.02175,0.02238,0.02295,0.02347,0.02395,0.02438,0.02476,0.02511,0.02541,0.02567,0.0259,0.02609,0.02625,0.02637,0.02646,0.02653,0.02656,0.02657,0.02655,0.0265,0.02644,0.02635,0.02624,0.02611,0.02596,0.0258,0.02562,0.02542,0.02521,0.02498,0.02474,0.02449,0.02423,0.02395,0.02367,0.02338,0.02308,0.02277,0.02246,0.02214,0.02181,0.02148,0.02114,0.0208,0.02046,0.02012,0.01977,0.01942,0.01906,0.01871,0.01836,0.018,0.01765,0.01729,0.01694,0.01659,0.01624,0.01589,0.01554,0.01519,0.01485,0.01451,0.01417,0.01383,0.0135,0.01317,0.01285,0.01252,0.0122,0.01189,0.01158,0.01127,0.01097,0.01067,0.01037,0.01008,0.009798,0.009516,0.00924,0.008967,0.0087,0.008437,0.008179,0.007925,0.007676,0.007432,0.007193,0.006958,0.006728,0.006503,0.006283,0.006067,0.005856,0.005649,0.005447,0.00525,0.005057,0.004869,0.004685,0.004506,0.004331,0.00416,0.003994,0.003831,0.003674,0.00352,0.00337,0.003224,0.003083,0.002945,0.002811,0.002681,0.002555,0.002432,0.002313,0.002198,0.002086,0.001977,0.001872,0.00177,0.001672,0.001576,0.001484,0.001395,0.001308,0.001225,0.001144,0.001067,0.0009919,0.0009197,0.0008501,0.0007831,0.0007185,0.0006564,0.0005967,0.0005393,0.0004842,0.0004313,0.0003805,0.0003319,0.0002853,0.0002406,0.0001979,0.0001571,0.0001181,8.093e-05,4.545e-05,1.164e-05,-2.053e-05,-5.113e-05,-8.02e-05,-0.0001078,-0.0001339,-0.0001587,-0.000182,-0.0002041,-0.0002249,-0.0002445,-0.000263,-0.0002802,-0.0002964,-0.0003115,-0.0003255,-0.0003386,-0.0003507,-0.0003619,-0.0003722,-0.0003816,-0.0003903,-0.0003981,-0.0004052,-0.0004115,-0.0004171,-0.0004221,-0.0004264,-0.0004301],"dfl":[100.0,100.0,100.0,100.0,99.98,99.96,99.91,99.84,99.74,99.6,99.41,99.18,98.91,98.58,98.2,97.77,97.28,96.75,96.16,95.52,94.84,94.11,93.33,92.5,91.64,90.73,89.79,88.81,87.8,86.76,85.68,84.58,83.45,82.3,81.12,79.93,78.72,77.49,76.25,74.99,73.73,72.45,71.17,69.88,68.58,67.29,65.99,64.69,63.39,62.09,60.8,59.51,58.22,56.94,55.67,54.41,53.15,51.91,50.67,49.45,48.23,47.03,45.84,44.67,43.5,42.36,41.22,40.11,39.0,37.92,36.85,35.79,34.76,33.73,32.73,31.74,30.77,29.82,28.88,27.97,27.07,26.18,25.32,24.47,23.64,22.82,22.03,21.25,20.49,19.74,19.02,18.31,17.61,16.94,16.28,15.63,15.0,14.39,13.8,13.22,12.65,12.1,11.56,11.04,10.54,10.05,9.57,9.107,8.658,8.222,7.799,7.389,6.992,6.607,6.235,5.875,5.527,5.19,4.864,4.55,4.247,3.954,3.672,3.399,3.137,2.885,2.642,2.408,2.183,1.967,1.76,1.561,1.37,1.188,1.013,0.8453,0.6851,0.5321,0.3861,0.2468,0.114,-0.01238,-0.1326,-0.2468,-0.3553,-0.4581,-0.5554,-0.6475,-0.7344,-0.8164,-0.8936,-0.9661,-1.034,-1.098,-1.157,-1.213,-1.265,-1.313,-1.357,-1.398,-1.435,-1.469,-1.5,-1.529,-1.554,-1.576,-1.596,-1.614,-1.628,-1.641,-1.652,-1.66,-1.666,-1.67,-1.673,-1.674,-1.673,-1.67,-1.666,-1.661,-1.654,-1.646,-1.636,-1.626,-1.614,-1.602,-1.588,-1.574,-1.559,-1.543,-1.526,-1.509,-1.491,-1.472,-1.453,-1.433,-1.413,-1.393,-1.372,-1.351,-1.329,-1.308,-1.286,-1.264,-1.242,-1.219,-1.197,-1.174,-1.152,-1.129,-1.106,-1.084,-1.061,-1.039,-1.016,-0.994,-0.9718,-0.9498,-0.9278,-0.9061,-0.8845,-0.8632,-0.842,-0.821,-0.8003,-0.7798,-0.7595,-0.7394,-0.7197,-0.7002,-0.6809,-0.6619,-0.6433,-0.6248,-0.6067,-0.5889,-0.5714,-0.5541,-0.5372,-0.5205,-0.5042,-0.4882,-0.4724,-0.457,-0.4419,-0.4271,-0.4126,-0.3984,-0.3845,-0.3709,-0.3576,-0.3446,-0.3319,-0.3195,-0.3074,-0.2956,-0.2841,-0.2728,-0.2619,-0.2512,-0.2408,-0.2306,-0.2208,-0.2111,-0.2018,-0.1927,-0.1839,-0.1753,-0.167,-0.1589,-0.1511,-0.1434,-0.1361,-0.1289,-0.122,-0.1153,-0.1088,-0.1025,-0.0964,-0.09052,-0.08484,-0.07935,-0.07406,-0.06895,-0.06402,-0.05927,-0.05469,-0.05029,-0.04604,-0.04196,-0.03804,-0.03427,-0.03066,-0.02719,-0.02386,-0.02067,-0.01761,-0.01469,-0.0119,-0.009228,-0.006679,-0.004248,-0.001932,0.0002738,0.002372,0.004365,0.006256,0.00805,0.009748,0.01135,0.01287,0.0143,0.01565,0.01691,0.0181,0.01921,0.02025,0.02122,0.02212,0.02295,0.02373,0.02444,0.02509,0.02569,0.02623,0.02672,0.02716,0.02755,0.0279,0.0282,0.02846,0.02868,0.02886,0.029,0.02911,0.02919,0.02923,0.02924,0.02922,0.02918,0.02911,0.02901,0.02889,0.02875,0.02859,0.0284,0.0282,0.02798,0.02775,0.02749,0.02723,0.02695,0.02666,0.02635,0.02604,0.02571,0.02538,0.02503,0.02468,0.02433,0.02396,0.02359,0.02322,0.02284,0.02246,0.02207,0.02168,0.02129,0.0209,0.0205,0.02011,0.01971,0.01932,0.01892,0.01853,0.01814,0.01775,0.01736,0.01697,0.01658,0.0162,0.01582,0.01544,0.01507,0.0147,0.01433,0.01397,0.01361,0.01326,0.01291,0.01256,0.01222,0.01189,0.01156,0.01123,0.01091,0.01059,0.01028,0.009974,0.009673,0.009377,0.009087,0.008802,0.008522,0.008247,0.007978,0.007714,0.007455,0.007202,0.006954,0.006711,0.006474,0.006242,0.006015,0.005793,0.005577,0.005365,0.005159,0.004958,0.004761,0.00457,0.004383,0.004202,0.004025,0.003852,0.003685,0.003522,0.003363,0.003209,0.003059,0.002914,0.002773,0.002636,0.002503,0.002374,0.002249,0.002128,0.002011,0.001897,0.001788,0.001681,0.001579,0.00148,0.001384,0.001291,0.001202,0.001116,0.001033,0.0009535,0.0008765,0.0008025,0.0007313,0.0006629,0.0005971,0.000534,0.0004734,0.0004153,0.0003597,0.0003064,0.0002554,0.0002066,0.00016,0.0001155,7.312e-05,3.27e-05,-5.786e-06,-4.239e-05,-7.716e-05,-0.0001102,-0.0001415,-0.0001711,-0.0001991,-0.0002256,-0.0002505,-0.000274,-0.0002961,-0.0003168,-0.0003361,-0.0003543,-0.0003712,-0.0003869,-0.0004014,-0.0004149,-0.0004273,-0.0004386,-0.000449,-0.0004585,-0.000467,-0.0004747,-0.0004815,-0.0004876,-0.0004928,-0.0004973,-0.0005011,-0.0005043,-0.0005068,-0.0005087,-0.00051,-0.0005107,-0.0005109,-0.0005106],"t_5mm":2.37,"t_5mm_dfl":2.355,"sovra_mm":1.601,"incl_max":0.7872,"dist_mm":0.4322,"filtro_mm":0.4322},"gradino_z":{"t":[0.0,0.02,0.04,0.06,0.08,0.1,0.12,0.14,0.16,0.18,0.2,0.22,0.24,0.26,0.28,0.3,0.32,0.34,0.36,0.38,0.4,0.42,0.44,0.46,0.48,0.5,0.52,0.54,0.56,0.58,0.6,0.62,0.64,0.66,0.68,0.7,0.72,0.74,0.76,0.78,0.8,0.82,0.84,0.86,0.88,0.9,0.92,0.94,0.96,0.98,1.0,1.02,1.04,1.06,1.08,1.1,1.12,1.14,1.16,1.18,1.2,1.22,1.24,1.26,1.28,1.3,1.32,1.34,1.36,1.38,1.4,1.42,1.44,1.46,1.48,1.5,1.52,1.54,1.56,1.58,1.6,1.62,1.64,1.66,1.68,1.7,1.72,1.74,1.76,1.78,1.8,1.82,1.84,1.86,1.88,1.9,1.92,1.94,1.96,1.98,2.0,2.02,2.04,2.06,2.08,2.1,2.12,2.14,2.16,2.18,2.2,2.22,2.24,2.26,2.28,2.3,2.32,2.34,2.36,2.38,2.4,2.42,2.44,2.46,2.48,2.5,2.52,2.54,2.56,2.58,2.6,2.62,2.64,2.66,2.68,2.7,2.72,2.74,2.76,2.78,2.8,2.82,2.84,2.86,2.88,2.9,2.92,2.94,2.96,2.98,3.0,3.02,3.04,3.06,3.08,3.1,3.12,3.14,3.16,3.18,3.2,3.22,3.24,3.26,3.28,3.3,3.32,3.34,3.36,3.38,3.4,3.42,3.44,3.46,3.48,3.5,3.52,3.54,3.56,3.58,3.6,3.62,3.64,3.66,3.68,3.7,3.72,3.74,3.76,3.78,3.8,3.82,3.84,3.86,3.88,3.9,3.92,3.94,3.96,3.98,4.0],"bs":[500.0,499.8,498.6,496.4,492.9,488.5,483.0,476.7,469.6,461.8,453.5,444.7,435.4,425.8,416.0,405.9,395.6,385.2,374.8,364.3,353.8,343.3,332.9,322.6,312.3,302.2,292.3,282.5,272.8,263.4,254.1,245.0,236.2,227.5,219.1,210.8,202.8,195.0,187.5,180.1,173.0,166.1,159.4,153.0,146.7,140.6,134.8,129.1,123.7,118.4,113.4,108.5,103.8,99.25,94.9,90.71,86.68,82.8,79.08,75.51,72.08,68.79,65.64,62.61,59.71,56.93,54.27,51.71,49.27,46.94,44.7,42.56,40.52,38.56,36.69,34.91,33.2,31.57,30.02,28.53,27.12,25.77,24.48,23.25,22.08,20.96,19.9,18.89,17.92,17.0,16.13,15.29,14.5,13.75,13.03,12.35,11.7,11.08,10.49,9.936,9.407,8.904,8.427,7.973,7.543,7.134,6.747,6.379,6.03,5.699,5.385,5.087,4.805,4.538,4.285,4.045,3.817,3.602,3.398,3.206,3.023,2.85,2.687,2.532,2.386,2.248,2.117,1.993,1.877,1.766,1.662,1.564,1.471,1.383,1.3,1.222,1.148,1.078,1.013,0.951,0.8927,0.8377,0.7859,0.7371,0.6911,0.6478,0.607,0.5686,0.5325,0.4985,0.4666,0.4365,0.4082,0.3817,0.3567,0.3332,0.3112,0.2905,0.2711,0.2528,0.2357,0.2197,0.2046,0.1905,0.1773,0.1649,0.1533,0.1425,0.1323,0.1228,0.1139,0.1056,0.09779,0.09052,0.08373,0.07739,0.07147,0.06595,0.0608,0.056,0.05153,0.04737,0.04349,0.03988,0.03653,0.03341,0.03052,0.02783,0.02534,0.02302,0.02088,0.0189,0.01706,0.01536,0.01379,0.01235,0.01101,0.009779,0.008645,0.007603,0.006646],"dfl":[500.0,500.0,500.0,499.8,499.4,498.6,497.2,495.1,492.3,488.7,484.3,479.1,473.3,466.7,459.5,451.7,443.4,434.6,425.4,416.0,406.2,396.2,386.0,375.8,365.4,355.0,344.6,334.2,323.8,313.6,303.4,293.4,283.5,273.8,264.2,254.9,245.7,236.8,228.0,219.5,211.2,203.1,195.2,187.6,180.1,173.0,166.0,159.3,152.7,146.4,140.3,134.5,128.8,123.3,118.1,113.0,108.1,103.4,98.85,94.5,90.32,86.3,82.44,78.73,75.18,71.77,68.5,65.37,62.37,59.49,56.73,54.1,51.57,49.16,46.85,44.64,42.52,40.5,38.57,36.73,34.97,33.29,31.68,30.15,28.69,27.29,25.96,24.69,23.48,22.32,21.22,20.17,19.17,18.22,17.31,16.45,15.63,14.84,14.1,13.39,12.71,12.07,11.46,10.88,10.32,9.796,9.296,8.82,8.368,7.938,7.529,7.141,6.772,6.422,6.089,5.772,5.472,5.187,4.916,4.659,4.415,4.183,3.964,3.755,3.557,3.369,3.191,3.022,2.862,2.71,2.566,2.429,2.299,2.177,2.06,1.95,1.845,1.746,1.652,1.563,1.479,1.399,1.323,1.251,1.184,1.119,1.058,1.001,0.9462,0.8945,0.8456,0.7993,0.7555,0.714,0.6748,0.6377,0.6025,0.5693,0.5379,0.5081,0.48,0.4534,0.4282,0.4045,0.382,0.3607,0.3406,0.3216,0.3036,0.2866,0.2705,0.2554,0.241,0.2275,0.2147,0.2026,0.1912,0.1804,0.1702,0.1605,0.1514,0.1428,0.1347,0.1271,0.1198,0.113,0.1066,0.1005,0.09472,0.0893,0.08418,0.07935,0.07479,0.07049,0.06643,0.0626,0.05899,0.05558,0.05236,0.04933,0.04647],"t_5":1.635,"t_5_dfl":1.735,"sovra_mm":0.0,"sovra_dfl_mm":0.0,"dist_mm":53.21},"mappa":[{"re":-1.25,"im":0.9682,"nome":"x, y","cls":"s1","doppio":false},{"re":-1.25,"im":-0.9682,"nome":"x, y","cls":"s1","doppio":false,"coniugato":true},{"re":-2.5,"im":0.866,"nome":"z","cls":"s3","doppio":false},{"re":-2.5,"im":-0.866,"nome":"z","cls":"s3","doppio":false,"coniugato":true},{"re":-5.0,"im":0.0,"nome":"ψ","cls":"s4","doppio":true},{"re":-9.0,"im":0.0,"nome":"φ, θ","cls":"s2","doppio":true},{"re":-20.0,"im":0.0,"nome":"z, coppia in più del DFL","cls":"k3","doppio":true},{"re":-50.0,"im":0.0,"nome":"motore, −1/τm","cls":"ink","doppio":false,"motore":true}]};
+const NS = 'http://www.w3.org/2000/svg';
+const MENO = '−';
+let uid = 0;
+
+// ---------- utilità ----------
+function svgEl(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function htmlEl(tag, attrs, parent, text) {
+  const e = document.createElement(tag);
+  if (attrs) for (const k in attrs) { if (k === 'class') e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  if (text !== undefined) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function fmt(v, d) {
+  if (v === null || v === undefined || typeof v !== 'number' || !isFinite(v)) return '—';
+  d = d === undefined ? 1 : d;
+  let s = v.toFixed(d);
+  if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);
+  return s.replace('-', MENO);
+}
+function fmtGm(v, d) { return (v === null || v === undefined) ? '∞' : fmt(v, d === undefined ? 1 : d); }
+function fmtPolo(p, d) {
+  if (Math.abs(p[1]) < 1e-4) return fmt(p[0], d);
+  return fmt(p[0], d) + ' ± ' + fmt(Math.abs(p[1]), d) + 'j';
+}
+function poliStr(lista, d) {
+  d = d === undefined ? 2 : d;
+  const out = [];
+  for (let i = 0; i < lista.length; i++) {
+    const p = lista[i];
+    if (Math.abs(p[1]) >= 1e-4) { if (p[1] > 0) out.push(fmtPolo(p, d)); continue; }
+    const q = lista[i + 1];
+    if (q && Math.abs(q[1]) < 1e-4 && Math.abs(q[0] - p[0]) < 1e-3 * Math.max(1, Math.abs(p[0]))) { out.push(fmt(p[0], d) + ' doppio'); i++; }
+    else out.push(fmt(p[0], d));
+  }
+  return out;
+}
+function get(path) { return path.split('.').reduce(function (o, k) { return (o === null || o === undefined) ? undefined : o[k]; }, D); }
+
+// ---------- numeri nel testo ----------
+document.querySelectorAll('[data-v]').forEach(function (e) {
+  const v = get(e.dataset.v);
+  const d = e.dataset.d !== undefined ? +e.dataset.d : 1;
+  e.textContent = typeof v === 'number' ? fmt(v, d) : (v === null || v === undefined ? '∞' : String(v));
+});
+document.querySelectorAll('[data-p]').forEach(function (e) {
+  let p = poliStr(get(e.dataset.p), e.dataset.d !== undefined ? +e.dataset.d : 2);
+  if (e.dataset.ultimi) p = p.slice(-(+e.dataset.ultimi));
+  e.textContent = p.join(', ');
+});
+
+// ---------- tabelle ----------
+function tabella(id, intest, righe, opt) {
+  const host = document.getElementById(id);
+  host.textContent = '';
+  const w = htmlEl('div', { class: 'table-wrap' }, host);
+  const t = htmlEl('table', null, w);
+  if (opt && opt.minW) t.style.minWidth = opt.minW + 'px';
+  const tr = htmlEl('tr', null, htmlEl('thead', null, t));
+  intest.forEach(function (x) { htmlEl('th', { scope: 'col' }, tr, x); });
+  const tb = htmlEl('tbody', null, t);
+  righe.forEach(function (r) {
+    if (r.gruppo) { const g = htmlEl('tr', { class: 'grp' }, tb); htmlEl('td', { colspan: intest.length }, g, r.gruppo); return; }
+    const row = htmlEl('tr', null, tb);
+    r.forEach(function (c, j) {
+      if (c && typeof c === 'object' && c.pill !== undefined) { const td = htmlEl('td', null, row); htmlEl('span', { class: 'pill ' + (c.pill ? 'ok' : 'bad') }, td, c.t); return; }
+      if (c && typeof c === 'object') { htmlEl('td', { class: c.c || '' }, row, c.t); return; }
+      htmlEl('td', { class: j === 0 ? '' : 'num' }, row, c);
+    });
+  });
+}
+
+function tabellaVista(host, intest, righe) {
+  const det = htmlEl('details', { class: 'tv' }, host);
+  htmlEl('summary', null, det, 'Valori in tabella');
+  const w = htmlEl('div', { class: 'table-wrap' }, det);
+  const t = htmlEl('table', null, w);
+  const tr = htmlEl('tr', null, htmlEl('thead', null, t));
+  intest.forEach(function (x) { htmlEl('th', { scope: 'col' }, tr, x); });
+  const tb = htmlEl('tbody', null, t);
+  righe.forEach(function (r) { const row = htmlEl('tr', null, tb); r.forEach(function (c, j) { htmlEl('td', { class: j === 0 && typeof c === 'string' && /[a-z]/i.test(c) ? '' : 'num' }, row, c); }); });
+}
+
+// ---------- grafici ----------
+function passo(range, n) { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), q = raw / p; return (q < 1.5 ? 1 : q < 3 ? 2 : q < 7 ? 5 : 10) * p; }
+function tacche(min, max, st) { const out = []; for (let v = Math.ceil(min / st - 1e-9) * st; v <= max + 1e-9; v += st) out.push(+v.toFixed(10)); return out; }
+function fmtTick(t) { const s = Number.isInteger(t) ? String(t) : String(+t.toFixed(3)); return s.replace('-', MENO); }
+
+function cornice(plot, o) {
+  const m = { l: 56, r: 16, t: 14, b: 46 };
+  const W = o.W, H = o.H, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const svg = svgEl('svg', { class: 'chart', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': o.aria || '' });
+  plot.insertBefore(svg, plot.firstChild);
+  const sx = function (v) { return m.l + (v - o.x.min) / (o.x.max - o.x.min) * pw; };
+  const sy = function (v) { return m.t + (1 - (v - o.y.min) / (o.y.max - o.y.min)) * ph; };
+  const g = svgEl('g', null, svg);
+  tacche(o.x.min, o.x.max, o.x.step).forEach(function (t) { const x = sx(t); svgEl('line', { x1: x, x2: x, y1: m.t, y2: m.t + ph, class: 'grid' }, g); svgEl('text', { x: x, y: m.t + ph + 17, class: 'tick', 'text-anchor': 'middle' }, g, (o.x.fmt || fmtTick)(t)); });
+  tacche(o.y.min, o.y.max, o.y.step).forEach(function (t) { const y = sy(t); svgEl('line', { x1: m.l, x2: m.l + pw, y1: y, y2: y, class: 'grid' }, g); svgEl('text', { x: m.l - 8, y: y + 4, class: 'tick', 'text-anchor': 'end' }, g, (o.y.fmt || fmtTick)(t)); });
+  svgEl('rect', { x: m.l, y: m.t, width: pw, height: ph, class: 'frame' }, g);
+  svgEl('text', { x: m.l + pw / 2, y: H - 7, class: 'axlabel', 'text-anchor': 'middle' }, g, o.x.label);
+  svgEl('text', { x: 13, y: m.t + ph / 2, class: 'axlabel', 'text-anchor': 'middle', transform: 'rotate(-90 13 ' + (m.t + ph / 2) + ')' }, g, o.y.label);
+  const id = 'clip' + (++uid);
+  const cp = svgEl('clipPath', { id: id }, svgEl('defs', null, svg));
+  svgEl('rect', { x: m.l, y: m.t, width: pw, height: ph }, cp);
+  const area = svgEl('g', { 'clip-path': 'url(#' + id + ')' }, svg);
+  const top = svgEl('g', null, svg);
+  return { svg: svg, g: g, area: area, top: top, sx: sx, sy: sy, m: m, pw: pw, ph: ph, W: W, H: H };
+}
+
+function tracciato(c, xs, ys) {
+  let d = '', su = false;
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i], y = ys[i];
+    if (x === null || y === null || !isFinite(x) || !isFinite(y)) { su = false; continue; }
+    d += (su ? 'L' : 'M') + c.sx(x).toFixed(1) + ' ' + c.sy(y).toFixed(1);
+    su = true;
+  }
+  return d;
+}
+
+function legenda(host, voci) {
+  const lg = htmlEl('div', { class: 'legend' }, host);
+  voci.forEach(function (v) { const s = htmlEl('span', null, lg); htmlEl('i', { class: v.cls }, s); s.appendChild(document.createTextNode(v.name)); });
+}
+
+function rigaTip(tip, cls, valore, nome) {
+  const r = htmlEl('div', { class: 'row' }, tip);
+  if (cls) htmlEl('span', { class: 'key ' + cls }, r);
+  htmlEl('b', null, r, valore);
+  if (nome) htmlEl('span', null, r, nome);
+}
+function posTip(tip, plot, px, py) {
+  tip.hidden = false;
+  const w = tip.offsetWidth, W = plot.clientWidth;
+  let left = px + 14;
+  if (left + w > W) left = px - 14 - w;
+  if (left < 0) left = Math.max(0, W - w);
+  tip.style.left = left + 'px';
+  tip.style.top = Math.max(0, py) + 'px';
+}
+function quandoCambiaLarghezza(plot, disegna) {
+  let ultima = 0;
+  function f() { const W = Math.round(plot.clientWidth); if (W && W !== ultima) { ultima = W; disegna(W); } }
+  f();
+  if (window.ResizeObserver) new ResizeObserver(f).observe(plot);
+  else window.addEventListener('resize', f);
+}
+
+// Grafico a linee con mirino: o = {x, series:[{name, y, cls}], xName, xUnit, xDec, yUnit, yDec, xMin, xMax, yMin, yMax, refsX, refsY, marks, aria}
+function grafico(host, o) {
+  host.textContent = '';
+  if (o.series.length > 1) legenda(host, o.series);
+  const plot = htmlEl('div', { class: 'plot' }, host);
+  const tip = htmlEl('div', { class: 'tip' }, plot); tip.hidden = true;
+  const xs = o.x;
+  const xmin = o.xMin !== undefined ? o.xMin : xs[0], xmax = o.xMax !== undefined ? o.xMax : xs[xs.length - 1];
+  let lo = Infinity, hi = -Infinity;
+  o.series.forEach(function (s) { s.y.forEach(function (v, i) { if (v !== null && isFinite(v) && xs[i] >= xmin && xs[i] <= xmax) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }); });
+  (o.refsY || []).forEach(function (r) { lo = Math.min(lo, r.v); hi = Math.max(hi, r.v); });
+  if (o.yMin !== undefined) lo = o.yMin;
+  if (o.yMax !== undefined) hi = o.yMax;
+  const ystep = passo(hi - lo, 5);
+  const ymin = o.yMin !== undefined ? o.yMin : Math.floor(lo / ystep) * ystep;
+  const ymax = o.yMax !== undefined ? o.yMax : Math.ceil(hi / ystep) * ystep;
+  const xstep = o.xStep || passo(xmax - xmin, 6);
+  const fx = o.xDec !== undefined ? o.xDec : 2, fy = o.yDec !== undefined ? o.yDec : 2;
+
+  quandoCambiaLarghezza(plot, function (W) {
+    plot.querySelectorAll('svg').forEach(function (s) { s.remove(); });
+    const H = o.h || Math.round(Math.max(250, Math.min(330, W * 0.6)));
+    const c = cornice(plot, { W: W, H: H, aria: o.aria, x: { min: xmin, max: xmax, step: xstep, label: o.xLabel }, y: { min: ymin, max: ymax, step: ystep, label: o.yLabel } });
+    (o.refsY || []).forEach(function (r) { const y = c.sy(r.v); svgEl('line', { x1: c.m.l, x2: c.m.l + c.pw, y1: y, y2: y, class: 'thr' }, c.area); if (r.label) svgEl('text', { x: c.m.l + c.pw - 6, y: y - 6, class: 'note soft', 'text-anchor': 'end' }, c.top, r.label); });
+    (o.refsX || []).forEach(function (r) { const x = c.sx(r.v); svgEl('line', { x1: x, x2: x, y1: c.m.t, y2: c.m.t + c.ph, class: 'thr' }, c.area); if (r.label) svgEl('text', { x: x + 4, y: c.m.t + 13, class: 'note soft' }, c.top, r.label); });
+    o.series.slice().reverse().forEach(function (s) { svgEl('path', { d: tracciato(c, xs, s.y), class: 'curve ' + s.cls }, c.area); });   // la prima serie resta sopra
+    (o.marks || []).forEach(function (mk) {
+      svgEl('circle', { cx: c.sx(mk.x), cy: c.sy(mk.y), r: 5, class: 'mk ' + (mk.cls || 'ink') }, c.top);
+      if (mk.label) svgEl('text', { x: c.sx(mk.x) + (mk.dx !== undefined ? mk.dx : 8), y: c.sy(mk.y) + (mk.dy !== undefined ? mk.dy : -9), class: 'note', 'text-anchor': mk.anchor || 'start' }, c.top, mk.label);
+    });
+    const croce = svgEl('line', { y1: c.m.t, y2: c.m.t + c.ph, class: 'cross', visibility: 'hidden' }, c.top);
+    const punti = svgEl('g', null, c.top);
+    const hit = svgEl('rect', { x: c.m.l, y: c.m.t, width: c.pw, height: c.ph, class: 'hit', tabindex: 0, 'aria-label': (o.aria || 'grafico') + '. Frecce sinistra e destra per scorrere i valori.' }, c.svg);
+    let idx = -1;
+    function mostra(i) {
+      idx = Math.max(0, Math.min(xs.length - 1, i));
+      while (idx > 0 && xs[idx] > xmax) idx--;
+      const x = c.sx(xs[idx]);
+      croce.setAttribute('x1', x); croce.setAttribute('x2', x); croce.setAttribute('visibility', 'visible');
+      punti.textContent = '';
+      tip.textContent = '';
+      htmlEl('div', { class: 'hd' }, tip, o.xName + ' = ' + fmt(xs[idx], fx) + (o.xUnit ? ' ' + o.xUnit : ''));
+      o.series.forEach(function (s) {
+        const v = s.y[idx];
+        if (v === null || !isFinite(v)) return;
+        if (v >= ymin && v <= ymax) svgEl('circle', { cx: x, cy: c.sy(v), r: 4.5, class: 'hdot ' + s.cls }, punti);
+        rigaTip(tip, o.series.length > 1 ? s.cls : null, fmt(v, fy) + (o.yUnit ? ' ' + o.yUnit : ''), o.series.length > 1 ? s.name : o.yName);
+      });
+      posTip(tip, plot, x * plot.clientWidth / c.W, c.m.t);
+    }
+    function nascondi() { tip.hidden = true; croce.setAttribute('visibility', 'hidden'); punti.textContent = ''; }
+    function vicino(evt) {
+      const r = c.svg.getBoundingClientRect();
+      const px = (evt.clientX - r.left) * (c.W / r.width);
+      const v = xmin + (px - c.m.l) / c.pw * (xmax - xmin);
+      let a = 0, b = xs.length - 1;
+      while (b - a > 1) { const mid = (a + b) >> 1; if (xs[mid] < v) a = mid; else b = mid; }
+      return Math.abs(xs[a] - v) <= Math.abs(xs[b] - v) ? a : b;
+    }
+    hit.addEventListener('pointermove', function (e) { mostra(vicino(e)); });
+    hit.addEventListener('pointerdown', function (e) { mostra(vicino(e)); });
+    hit.addEventListener('pointerleave', nascondi);
+    hit.addEventListener('focus', function () { mostra(idx >= 0 ? idx : Math.floor(xs.length / 4)); });
+    hit.addEventListener('blur', nascondi);
+    hit.addEventListener('keydown', function (e) {
+      const k = e.shiftKey ? 10 : 1;
+      if (e.key === 'ArrowRight') { mostra(idx + k); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft') { mostra(idx - k); e.preventDefault(); }
+      else if (e.key === 'Escape') nascondi();
+    });
+  });
+
+  // vista tabellare: circa 20 righe sull'intervallo mostrato
+  const ii = [];
+  const dentro = []; xs.forEach(function (v, i) { if (v >= xmin && v <= xmax) dentro.push(i); });
+  const n = Math.min(o.righe || 21, dentro.length);
+  for (let k = 0; k < n; k++) ii.push(dentro[Math.round(k * (dentro.length - 1) / (n - 1))]);
+  tabellaVista(host, [o.xName + (o.xUnit ? ' [' + o.xUnit + ']' : '')].concat(o.series.map(function (s) { return (o.series.length > 1 ? s.name : o.yName) + (o.yUnit ? ' [' + o.yUnit + ']' : ''); })),
+    ii.map(function (i) { return [fmt(xs[i], fx)].concat(o.series.map(function (s) { return fmt(s.y[i], fy); })); }));
+}
+
+// ---------- intestazione ----------
+(function () {
+  const m = D.meta;
+  document.getElementById('meta').textContent = 'Generato il ' + m.data + (m.commit ? ' dal commit ' + m.commit + (m.sporco ? ' con modifiche non salvate' : '') : '') +
+    ' · τm = ' + fmt(m.tau_m * 1000, 0) + ' ms · Tc = ' + fmt(m.T_c * 1000, 0) + ' ms · τf = ' + fmt(m.tau_f * 1000, 0) + ' ms · g = ' + m.g + ' m/s²';
+  const p = document.getElementById('pill-main');
+  htmlEl('span', { class: 'pill ' + (D.bs_uguale_main ? 'ok' : 'bad') }, p, D.bs_uguale_main ? 'uguali' : 'diversi');
+})();
+
+// ---------- tabelle ----------
+(function () {
+  const lettere = ['x', 'ẋ', 'θ', 'θ̇'];
+  tabella('t-K', ['Legge sull\'asse x'].concat(lettere.map(function (l) { return 'coeff. di ' + l; })),
+    [['BS (e GEO), derivate esatte'].concat(D.K_x.bs_esatte.map(function (v) { return fmt(v, 2); })),
+     ['DFL'].concat(D.K_x.dfl.map(function (v) { return fmt(v, 2); }))], { minW: 560 });
+
+  tabella('t-poli', ['Canale', 'Polinomio', 'Poli', 'ωₙ [rad/s]', 'ζ', 'ζ minima del BS', 'Per'],
+    D.canali.map(function (c) {
+      return [c.nome, { t: 's² + ' + fmt(c.beta, 4).replace(/\.?0+$/, '') + ' s + ' + fmt(c.alpha, 4).replace(/\.?0+$/, ''), c: 'num' },
+        { t: poliStr(c.poli, 2).join(', ').replace(/\.00 doppio/, ' doppio'), c: 'wrapnum' }, fmt(c.wn, 2), fmt(c.zeta, 3),
+        c.zeta_min === null ? { t: '—', c: 'num' } : fmt(c.zeta_min, 3),
+        { t: c.id === 'dfl_z' ? 'solo DFL' : 'BS, DFL, GEO', c: 'sub' }];
+    }), { minW: 820 });
+
+  const sz = D.scelta_dfl_z;
+  tabella('t-dfl-z', ['Coppia in più', 'Distanza da BS/GEO [mm]', 'Entro il 5% [s]', 'Margine di fase [°]', 'Margine di guadagno [dB]', 'Picco di δT/m [m/s²]', ''],
+    sz.righe.map(function (r) {
+      return [fmt(-r.lam, 0) + ' doppio', fmt(r.dist_mm, 0), fmt(r.t_5, 2), fmt(r.pm, 1), fmtGm(r.gm, 1), fmt(r.u_max, 2),
+        r.scelta ? { pill: true, t: 'scelta' } : (r.pm < 50 ? { t: 'sotto i 50°', c: 'sub' } : { t: '', c: '' })];
+    }).concat([['BS e GEO', '0', fmt(sz.bs.t_5, 2), fmt(D.margini.z_bs.pm, 1), fmtGm(D.margini.z_bs.gm, 1), fmt(sz.bs.u_max, 2), { t: 'riferimento', c: 'sub' }]]),
+    { minW: 820 });
+
+  const nomi = { x: 'x', y: 'y', z: 'z', phi: 'φ', theta: 'θ', psi: 'ψ' };
+  const polo = { x: 'xy', y: 'xy', z: 'z', phi: 'att', theta: 'att', psi: 'psi' };
+  tabella('t-bs', ['Canale', 'k₁', 'k₂', 'k₁ + k₂ = β', '1 + k₁k₂ = α'],
+    ['x', 'y', 'z', 'phi', 'theta', 'psi'].map(function (c) {
+      const k = D.bs[c];
+      return [nomi[c], fmt(k[0], 2), fmt(k[1], 2), fmt(k[0] + k[1], 2), fmt(1 + k[0] * k[1], 2)];
+    }));
+
+  tabella('t-dfl', ['Uscita', 'c₃', 'c₂', 'c₁', 'c₀'],
+    [['x', 'y', 'z'].map(function (c) { return [nomi[c]].concat(D.dfl[c].map(function (v) { return fmt(v, 1); })); }),
+     [['ψ', '—', '—', fmt(D.dfl.psi[0], 1), fmt(D.dfl.psi[1], 1)]]].flat());
+
+  const g = D.geo_n;
+  const diag = function (v) { return v.map(function (x) { return fmt(x, 1).replace(/\.0$/, ''); }).join(', '); };
+  tabella('t-geo', ['Guadagno', 'Diagonale', 'Per', 'Unità'],
+    [['Kₓ', diag(g.kx), { t: 'm', c: 'sub' }, { t: 'N/m', c: 'sub' }],
+     ['Kᵥ', diag(g.kv), { t: 'm', c: 'sub' }, { t: 'N·s/m', c: 'sub' }],
+     ['K_R', diag(g.kR), { t: 'Iₓ, I_y, I_z', c: 'sub' }, { t: 'N·m/rad', c: 'sub' }],
+     ['K_Ω', diag(g.kOmega), { t: 'Iₓ, I_y, I_z', c: 'sub' }, { t: 'N·m·s/rad', c: 'sub' }]]);
+
+  const M = D.margini;
+  const cella = function (m) { return fmt(m.pm, 1) + '° · ' + fmtGm(m.gm, 1) + ' dB'; };
+  tabella('t-margini', ['Anello', 'BS', 'DFL', 'GEO'],
+    [['Asse x, y all\'attuatore', cella(M.x_bs), cella(M.x_dfl), cella(M.x_bs)],
+     ['Quota', cella(M.z_bs), cella(M.z_dfl), cella(M.z_bs)],
+     ['Imbardata', cella(M.psi), cella(M.psi), cella(M.psi)],
+     ['Anello d\'assetto interno (φ, θ)', cella(M.att), { t: '— (nessuna cascata)', c: 'sub' }, cella(M.att)],
+     ['Anello di posizione, aperto su θd', cella(M.pos_bs), { t: '—', c: 'sub' }, cella(M.pos_bs)]], { minW: 640 });
+})();
+
+// ---------- grafici delle risposte ----------
+(function () {
+  const gx = D.gradino_x, gz = D.gradino_z;
+  grafico(document.getElementById('g-x'), {
+    x: gx.t, xName: 't', xUnit: 's', xDec: 2, yUnit: 'mm', yDec: 2, xLabel: 't [s]', yLabel: 'x − xd [mm]',
+    series: [{ name: 'BS e GEO', y: gx.bs, cls: 's1' }, { name: 'DFL', y: gx.dfl, cls: 's2 tratt' }],
+    refsY: [{ v: 5, label: '5 mm' }], aria: 'Gradino di 10 cm su x: errore nel tempo per BS e GEO e per il DFL'
+  });
+  grafico(document.getElementById('g-z'), {
+    x: gz.t, xName: 't', xUnit: 's', xDec: 2, yUnit: 'mm', yDec: 1, xLabel: 't [s]', yLabel: 'z − zd [mm]',
+    series: [{ name: 'BS e GEO', y: gz.bs, cls: 's1' }, { name: 'DFL, coppia in più −20 doppio', y: gz.dfl, cls: 's2 tratt' }],
+    refsY: [{ v: 25, label: '5%' }], aria: 'Gradino di 0.5 m su z: errore nel tempo per BS e GEO e per il DFL'
+  });
+})();
+
+// ---------- mappa dei poli ----------
+(function () {
+  const host = document.getElementById('g-mappa');
+  const plot = htmlEl('div', { class: 'plot' }, host);
+  const tip = htmlEl('div', { class: 'tip' }, plot); tip.hidden = true;
+  const lmin = Math.log10(0.5), lmax = Math.log10(80);
+  const tx = [-50, -20, -10, -5, -2, -1, -0.5], ty = [-2, -1, 0, 1, 2];
+
+  quandoCambiaLarghezza(plot, function (W) {
+    plot.querySelectorAll('svg').forEach(function (s) { s.remove(); });
+    const H = Math.round(Math.max(250, Math.min(320, W * 0.5)));
+    const m = { l: 56, r: 16, t: 14, b: 46 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+    const sx = function (re) { return m.l + (lmax - Math.log10(-re)) / (lmax - lmin) * pw; };
+    const sy = function (im) { return m.t + (1 - (im + 2.4) / 4.8) * ph; };
+    const svg = svgEl('svg', { class: 'chart', width: W, height: H, viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'Poli scelti nel piano complesso, con la fascia ammessa dal backstepping' });
+    plot.insertBefore(svg, plot.firstChild);
+    const g = svgEl('g', null, svg);
+    svgEl('rect', { x: m.l, y: sy(1), width: pw, height: sy(-1) - sy(1), class: 'fascia' }, g);
+    tx.forEach(function (t) { const x = sx(t); svgEl('line', { x1: x, x2: x, y1: m.t, y2: m.t + ph, class: 'grid' }, g); svgEl('text', { x: x, y: m.t + ph + 17, class: 'tick', 'text-anchor': 'middle' }, g, fmtTick(t)); });
+    ty.forEach(function (t) { const y = sy(t); svgEl('line', { x1: m.l, x2: m.l + pw, y1: y, y2: y, class: t === 0 ? 'asse0' : 'grid' }, g); svgEl('text', { x: m.l - 8, y: y + 4, class: 'tick', 'text-anchor': 'end' }, g, fmtTick(t)); });
+    [1, -1].forEach(function (t) { svgEl('line', { x1: m.l, x2: m.l + pw, y1: sy(t), y2: sy(t), class: 'fascia-bordo' }, g); });
+    svgEl('rect', { x: m.l, y: m.t, width: pw, height: ph, class: 'frame' }, g);
+    svgEl('text', { x: m.l + pw / 2, y: H - 7, class: 'axlabel', 'text-anchor': 'middle' }, g, 'parte reale [rad/s], scala logaritmica');
+    svgEl('text', { x: 13, y: m.t + ph / 2, class: 'axlabel', 'text-anchor': 'middle', transform: 'rotate(-90 13 ' + (m.t + ph / 2) + ')' }, g, 'parte immaginaria [rad/s]');
+    svgEl('text', { x: m.l + 8, y: sy(1) - 7, class: 'note soft' }, g, 'BS: poli complessi con |Im| ≤ 1');
+
+    const top = svgEl('g', null, svg);
+    D.mappa.forEach(function (p) {
+      const x = sx(p.re), y = sy(p.im);
+      if (p.motore) {
+        svgEl('line', { x1: x - 6, x2: x + 6, y1: y - 6, y2: y + 6, class: 'motore' }, top);
+        svgEl('line', { x1: x - 6, x2: x + 6, y1: y + 6, y2: y - 6, class: 'motore' }, top);
+      } else {
+        svgEl('circle', { cx: x, cy: y, r: 5.5, class: 'mk ' + p.cls }, top);
+        if (p.doppio) svgEl('circle', { cx: x, cy: y, r: 9.5, class: 'anello ' + p.cls }, top);
+      }
+      if (!p.coniugato) {
+        const sopra = p.im === 0;
+        const etichetta = p.motore ? 'motore' : p.nome.replace('z, coppia in più del DFL', 'DFL z');
+        svgEl('text', { x: x + (sopra ? 0 : 10), y: y + (sopra ? -16 : 4), class: 'note', 'text-anchor': sopra ? 'middle' : 'start' }, top, etichetta);
+      }
+      const hit = svgEl('circle', { cx: x, cy: y, r: 13, class: 'polo-hit', tabindex: 0, 'aria-label': p.nome + ': ' + fmtPolo([p.re, p.im], 2) + (p.doppio ? ' doppio' : '') }, svg);
+      function mostra() {
+        tip.textContent = '';
+        htmlEl('div', { class: 'hd' }, tip, p.nome);
+        rigaTip(tip, null, fmtPolo([p.re, p.im], 2) + (p.doppio ? ' (doppio)' : ''), p.motore ? 'non assegnabile' : '');
+        posTip(tip, plot, x * plot.clientWidth / W, Math.max(0, y * plot.clientWidth / W - 60));
+      }
+      hit.addEventListener('pointerenter', mostra);
+      hit.addEventListener('focus', mostra);
+      hit.addEventListener('pointerleave', function () { tip.hidden = true; });
+      hit.addEventListener('blur', function () { tip.hidden = true; });
+    });
+  });
+})();
+
+})();
+</script>
+</body>
+</html>

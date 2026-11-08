@@ -226,3 +226,7 @@ doc/*.toc
 doc/*.fls
 doc/*.fdb_latexmk
 doc/*.synctex.gz
+
+# Uscite delle simulazioni: si rigenerano con i simula.py, non vanno in git
+*_control/out/*
+!*_control/out/.gitkeep

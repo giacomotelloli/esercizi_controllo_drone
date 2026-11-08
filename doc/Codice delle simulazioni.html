@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Codice delle simulazioni</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400&display=swap">
+<style>
+/* Stessi colori e caratteri di "Campagna delle simulazioni.html" */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f6;
+  --surface: #fcfcfd;
+  --fg: #15181d;
+  --fg2: #4a515b;
+  --muted: #7c848f;
+  --axis: #b9bfc7;
+  --line: rgba(21, 24, 29, 0.11);
+  --accent: #1f5bb5;
+  --crit: #d03b3b;
+  --good-ink: #006300;
+  --warn-ink: #8a5600;
+  --wash: rgba(42, 120, 214, 0.07);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+    --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+    --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440;
+    --wash: rgba(57, 135, 229, 0.12);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+  --axis: #3c434c; --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+  --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440;
+  --wash: rgba(57, 135, 229, 0.12);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.62 var(--f-body);
+  font-optical-sizing: auto;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 44px;
+}
+.col { max-width: 720px; width: 100%; margin: 0 auto; display: grid; gap: 14px; min-width: 0; }
+.col > * { margin: 0; }
+.wide { width: 100%; display: grid; gap: 14px; min-width: 0; }
+.wide > * { margin: 0; }
+section { display: grid; gap: 22px; min-width: 0; }
+
+h1, h2, h3 { font-family: var(--f-display); font-stretch: 88%; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 760; letter-spacing: -0.01em; }
+h2 { font-size: 27px; font-weight: 720; }
+h3 { font-size: 19px; font-weight: 680; margin-top: 8px; }
+.eyebrow { font: 600 12.5px/1.2 var(--f-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg2); }
+.sec-num { font: 500 14px var(--f-mono); color: var(--accent); display: block; margin-bottom: 6px; }
+.lede { font-size: 19.5px; line-height: 1.55; }
+.meta { font: 500 13px/1.5 var(--f-mono); color: var(--fg2); }
+p { text-wrap: pretty; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--wash); padding: 0.05em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+a { color: var(--accent); }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
+li::marker { color: var(--accent); }
+
+.note {
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  display: grid; gap: 6px;
+}
+.note > * { margin: 0; }
+.note.warn { border-left-color: var(--crit); }
+
+/* I numeri della griglia */
+.conto { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.conto div { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.conto b { font: 700 28px/1.1 var(--f-display); font-stretch: 88%; font-variant-numeric: tabular-nums; }
+.conto span { font: 500 13px/1.35 var(--f-display); color: var(--fg2); }
+.conto div.tot { border-color: var(--accent); background: var(--wash); }
+.conto div.tot b { color: var(--accent); }
+
+/* Tabelle */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 13px/1.35 var(--f-display); color: var(--fg2); letter-spacing: 0.02em; background: var(--bg); }
+td.num { font-family: var(--f-mono); font-size: 13.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.sub { color: var(--fg2); font-size: 14px; }
+td.name { font: 600 14.5px/1.35 var(--f-display); font-stretch: 92%; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+tr.grp td { background: var(--wash); font: 600 13px var(--f-display); color: var(--fg2); }
+table.griglia { min-width: 760px; }
+table.griglia td { font-size: 14.5px; }
+.aperto { font: 500 12px/1.3 var(--f-mono); color: var(--warn-ink); white-space: nowrap; }
+.cap { font-size: 14.5px; color: var(--fg2); }
+
+/* Su schermi stretti le tabelle di testo diventano schede impilate */
+@media (max-width: 640px) {
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; }
+  table.stack thead { display: none; }
+  table.stack tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  table.stack tr:last-child { border-bottom: 0; }
+  table.stack td { border-bottom: 0; padding: 3px 14px; }
+  table.stack td.name { white-space: normal; }
+  table.stack tr.grp td { padding: 6px 14px; }
+}
+.passi { counter-reset: p; list-style: none; padding: 0; gap: 0; }
+.passi li { counter-increment: p; display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); }
+.passi li::before { content: counter(p); font: 600 15px var(--f-mono); color: var(--accent); }
+pre.albero { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font: 13px/1.6 var(--f-mono); }
+pre.albero b { color: var(--accent); font-weight: 500; }
+pre.albero i { color: var(--fg2); font-style: normal; }
+section > *, .col > *, .wide > * { min-width: 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="col">
+  <div class="eyebrow">Elective in Robotics · confronto BS / DFL / GEO · impostato l'8 novembre 2026</div>
+  <h1>Codice delle simulazioni</h1>
+  <p class="lede">Come è organizzato il codice che esegue le 108 prove: una sola scena, un ciclo comune ai tre controllori, uno script di simulazione in ogni cartella.</p>
+  <p class="meta">Solo codice: nessuna prova è ancora stata lanciata in CoppeliaSim. Griglia, registrazione e metriche sono quelle di <em>Campagna delle simulazioni</em>.</p>
+</header>
+
+<!-- ============================================================ 1 -->
+<section class="col" id="struttura">
+  <div><span class="sec-num">1</span><h2>La struttura</h2></div>
+  <pre class="albero"><b>comune/</b>
+  drone_control.ttt   <i>l'unica scena, spostata da Backstepping_control/</i>
+  drone.py            <i>impianto, con le aggiunte del §2</i>
+  traiettoria.py      <i>+ Hover (T1) e Otto (T2), stessa interfaccia</i>
+  taratura.py         <i>poli → guadagni dei tre controllori</i>
+  scenari.py          <i>catalogo delle 36 prove</i>
+  aria.py             <i>attrito, vento, raffica 1-coseno</i>
+  esecuzione.py       <i>il ciclo di una prova e la campagna</i>
+  registro.py         <i>salva e rilegge il log di una prova</i>
+<b>Backstepping_control/</b>   simula.py   out/
+<b>DFL_control/</b>            simula.py   out/
+<b>Geometric_control/</b>      simula.py   out/</pre>
+  <p>Ogni <code>simula.py</code> è lungo una riga: passa a <code>esecuzione.py</code> il proprio controllore e la propria cartella <code>out/</code>. Il ciclo è scritto <strong>una volta sola</strong>, quindi nessuna differenza tra i controllori può nascere da tre cicli scritti in modo diverso.</p>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="col" id="drone">
+  <div><span class="sec-num">2</span><h2>Che cosa è cambiato nel Drone</h2></div>
+  <ul>
+    <li><strong>Motori già a \(\Omega_h\)</strong> invece che fermi: il drone parte in equilibrio.</li>
+    <li><strong>Per il log</strong>: le Ω richieste dal mixer, la saturazione sulla richiesta (prima del taglio, motore per motore), spinta e coppie realizzate.</li>
+    <li><code>applica_forza_esterna(F)</code> per l'aria, <code>imposta_posa(p, R)</code> per la posa iniziale, <code>scala_carico(sim, path, k)</code> per lo scenario B.</li>
+  </ul>
+  <p class="cap">\(\tau_m\) dello scenario C passa già dai <code>PARAM_MOTORI</code>: non serviva altro.</p>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="col" id="prova">
+  <div><span class="sec-num">3</span><h2>Lo svolgimento di una prova</h2></div>
+  <ol class="passi">
+    <li><span><strong>Scena dal file.</strong> Si ricarica <code>comune/drone_control.ttt</code> prima di ogni prova: una massa scalata o una posa della prova precedente non possono sopravvivere.</span></li>
+    <li><span><strong>Passo e carico.</strong> Passo di 5 ms; nello scenario B massa e inerzia di ogni pezzo moltiplicate per il fattore.</span></li>
+    <li><span><strong>Drone.</strong> Con i <code>PARAM_MOTORI</code> della prova (\(\tau_m\) nello scenario C); legge \(m\) e \(J\). Se non sono \(k\) volte quelli nominali, la prova non parte.</span></li>
+    <li><span><strong>Controllore.</strong> Guadagni da <code>taratura.parametri</code> con \(m\) e \(J\) appena letti, poi <code>reset()</code>.</span></li>
+    <li><span><strong>Posa iniziale</strong> della prova, a simulazione ferma.</span></li>
+    <li><span><strong>Ciclo</strong> a ogni passo: stato → riferimento → cronometro su <code>calcola</code> → forza dell'aria → motori → log → criteri di fallimento → <code>sim.step()</code>.</span></li>
+    <li><span><strong>Fine.</strong> Simulazione ferma e log scritto tutto insieme.</span></li>
+  </ol>
+  <p class="cap">Criteri di fallimento: distanza dal riferimento oltre 3 m, quota sotto 0.1 m, valori non finiti, controllore singolare. Al primo che scatta la prova si ferma e l'esito lo registra.</p>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="col" id="out">
+  <div><span class="sec-num">4</span><h2>Che cosa finisce in out/</h2></div>
+  <p>Come nella proposta, una sottocartella per prova, con il nome della quaterna: per esempio <code>DFL_control/out/T2_A2_DFL/</code>. Dentro ci sono le grandezze registrate in volo, i parametri della prova e la versione del codice.</p>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>File</th><th>Contenuto</th></tr></thead>
+      <tbody>
+        <tr><td class="name"><code>metadati.json</code></td><td>quaterna, descrizione della prova, \(m\), \(J\) e motori effettivi, poli e guadagni, commit, versione di CoppeliaSim, esito, \(\bar e\) ed \(e_{max}\) come riassunto rapido</td></tr>
+        <tr><td class="name"><code>serie.npz</code></td><td>una riga per passo, le stesse 17 chiavi in tutte le prove: <code>t, p, p_d, v, v_d, a_d, R, eta, omega, psi_d, u_cmd, u_real, Omega_rich, Omega, saturazione, t_calc, F_aria</code></td></tr>
+        <tr><td class="name"><code>interne.npz</code></td><td>BS: <code>eta_d, mu, V_pos, V_att</code> · DFL: <code>zeta, v_virt, det_A</code> · GEO: <code>R_d, eta_d, e_R, e_Omega, Psi</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap">Il log si scrive a prova finita, prima in <code>&lt;id&gt;.parziale</code> e poi rinominato: una prova interrotta non sembra fatta. Le metriche per fase si calcoleranno dopo, dal log. <code>out/</code> è escluso da git.</p>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="col" id="uso">
+  <div><span class="sec-num">5</span><h2>Come si lancia</h2></div>
+  <p>Con CoppeliaSim aperto; la scena la carica lo script.</p>
+  <pre class="albero">python Backstepping_control/simula.py                  <i>le 36 prove</i>
+python DFL_control/simula.py --test T1 --scenario N    <i>solo alcune (anche --livello)</i>
+python Geometric_control/simula.py --elenco            <i>elenco, senza simulare</i>
+python Backstepping_control/simula.py --rifai          <i>rifà anche quelle già in out/</i></pre>
+  <p class="cap">Le prove già presenti in <code>out/</code> si saltano: una campagna interrotta riparte da dove si era fermata.</p>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="col" id="valori">
+  <div><span class="sec-num">6</span><h2>Valori scritti nel catalogo</h2></div>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Che cosa</th><th>Valore</th></tr></thead>
+      <tbody>
+        <tr><td class="name">T1</td><td>hover in (0, 0, 1.5) m; N3 rilasciato a 3 m con 120° di beccheggio; A fermo in P, raffica a 8 s</td></tr>
+        <tr><td class="name">T2</td><td>otto con A = 1.5 m attorno a (0, 0, 1.5) m, 4 giri; ω = 0.8 · 1.4 · <strong>2.3</strong> rad/s; raffica a 4.5π/ω</td></tr>
+        <tr><td class="name">T3</td><td>quadrato di 3 m, quote 1 e 2.5 m, <code>min_snap</code>; <code>v_media</code> = 1 · 2 · 2.5 m/s; F3 di A dall'inizio del tratto 2, per 4 s</td></tr>
+        <tr><td class="name">A · B · C</td><td>vento 2 · 4 · 6 m/s con raffica +2 · +4 · +6; carico ×1.5 · ×2 · ×2.5; \(\tau_m\) = <strong>40 · 70 · 110</strong> ms</td></tr>
+        <tr><td class="name">Controllori</td><td>da <code>taratura.py</code>: derivate filtrate a 20 ms, DFL in quota a −20 doppio, <code>angolo_max</code> 80°, \(T_{min}\) = 0.1 mg</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="cap">In grassetto i due valori che il 7 novembre erano ancora da confermare: sono quelli proposti.</p>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="col" id="verificare">
+  <div><span class="sec-num">7</span><h2>Da guardare al primo lancio</h2></div>
+  <div class="note warn">
+    <p>Il codice non è ancora stato eseguito in CoppeliaSim. Conviene partire con una prova sola, per esempio <code>--test T1 --scenario N --livello 1</code>, e controllare:</p>
+    <ul>
+      <li>che <code>sim.loadScene</code> funzioni dalla ZMQ Remote API e che la simulazione si fermi prima di ricaricare;</li>
+      <li>che <code>imposta_posa</code> metta la terna di <code>/base</code> dove deve, e che il pavimento sia a z = 0;</li>
+      <li>nello scenario B, che <code>setShapeMass</code> e <code>setShapeInertia</code> scalino davvero: se no, la prova si ferma da sola.</li>
+    </ul>
+  </div>
+  <ul>
+    <li><strong>Rispetto alla proposta</strong>: uno script per controllore invece di un main per coppia riferimento–scenario, e <code>out/</code> in ogni cartella invece di un'unica <code>output/</code>. Il contenuto di ogni prova è lo stesso.</li>
+    <li><strong>Non toccati</strong>: <code>main.py</code> e <code>main_hover.py</code>. Il <code>README.md</code> indica ancora la scena in <code>Backstepping_control/</code>.</li>
+  </ul>
+</section>
+
+</div>
+<script>
+window.MathJax = { tex: { inlineMath: [['\\(', '\\)']] }, svg: { fontCache: 'global' }, options: { enableMenu: false } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+</body>
+</html>

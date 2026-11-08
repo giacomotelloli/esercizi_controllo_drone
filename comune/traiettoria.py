@@ -114,6 +114,55 @@ class TraiettoriaInterpolata:
         }
 
 
+class Hover:
+    # T1: posizione e yaw costanti, stessa interfaccia di TraiettoriaInterpolata
+
+    def __init__(self, p, psi:float = 0.0):
+        self.p = np.array(p, dtype=float)
+        self.psi = psi
+
+        return
+
+    def __call__(self, t:float):
+        zero = np.zeros(3)
+        return {
+            'p': self.p.copy(), 'v': zero, 'a': zero.copy(),
+            'j': zero.copy(), 's': zero.copy(),
+            'psi': self.psi, 'dpsi': 0.0, 'ddpsi': 0.0,
+        }
+
+
+class Otto:
+    # T2: lemniscata di Gerono nel piano orizzontale, con derivate analitiche fino allo snap
+    #   x = cx + A sin(w t),   y = cy + (A/2) sin(2 w t),   z = z0,   psi costante
+    # Il riferimento parte già in moto: a t = 0 è al centro con velocità (A w, A w, 0)
+
+    def __init__(self, A:float, omega:float, centro = (0.0, 0.0, 1.5), psi:float = 0.0):
+        self.A = A                                      # semiampiezza lungo x [m]
+        self.omega = omega                              # [rad/s]
+        self.centro = np.array(centro, dtype=float)     # (cx, cy, z0) [m]
+        self.psi = psi
+        self.periodo = 2*np.pi/omega                    # durata di un giro [s]
+
+        return
+
+    def __call__(self, t:float):
+        A, w = self.A, self.omega
+        s1, c1 = np.sin(w*t), np.cos(w*t)
+        s2, c2 = np.sin(2*w*t), np.cos(2*w*t)
+
+        # Derivate di ordine 0..4 di x e y
+        x = [A*s1, A*w*c1, -A*w**2*s1, -A*w**3*c1, A*w**4*s1]
+        y = [A/2*s2, A*w*c2, -2*A*w**2*s2, -4*A*w**3*c2, 8*A*w**4*s2]
+        d = [np.array([x[r], y[r], 0.0]) for r in range(5)]
+
+        return {
+            'p': d[0] + self.centro, 'v': d[1], 'a': d[2],
+            'j': d[3], 's': d[4],
+            'psi': self.psi, 'dpsi': 0.0, 'ddpsi': 0.0,
+        }
+
+
 if __name__ == "__main__":
     # Confronto dei metodi sugli stessi punti: python comune/traiettoria.py
     import matplotlib.pyplot as plt

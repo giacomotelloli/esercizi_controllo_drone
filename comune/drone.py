@@ -51,9 +51,6 @@ class Drone:
         self.dt = sim.getSimulationTimeStep()
         self.alpha = 1 - np.exp(-self.dt / self.tau_m)
 
-        # Stato dei motori 
-        self.Omega = np.zeros(4)
-
         x_eliche = self.pos_eliche[:,0]
         y_eliche = self.pos_eliche[:,1]
 
@@ -66,6 +63,15 @@ class Drone:
         # Matrice M 
         self.M = np.array([riga_T,riga_tau_x,riga_tau_y,riga_tau_z])
         self.M_inv = np.linalg.inv(self.M)
+
+        # Stato dei motori: partono già alla velocità di hover, così il drone parte in equilibrio senza transitorio di avvio
+        self.Omega_hover = np.sqrt(np.maximum(self.M_inv @ np.array([self.massa*9.81, 0, 0, 0]), 0))
+        self.Omega = self.Omega_hover.copy()
+
+        # Ultimo comando, per il log
+        self.Omega_richieste = self.Omega.copy()                    # velocità chieste dal mixer, prima del taglio [rad/sec]
+        self.saturazione = np.zeros(4, dtype=bool)                  # richiesta fuori da [0, Omega_max], motore per motore
+        self.u_realizzato = np.array([self.massa*9.81, 0, 0, 0])    # spinta e coppie davvero applicate nel passo
 
         # Inizializzazione Variabili 
         self.p = np.zeros(3) # posizione in sistema inerziale [m]
@@ -136,8 +142,13 @@ class Drone:
         # Mixer: da spinta totale [N] e coppie in terna body [N*m] alle velocità dei motori
         u = np.array([T, tau[0], tau[1], tau[2]])
         Omega2 = self.M_inv @ u             # quadrati delle velocità [(rad/sec)^2]
+
+        # Saturazione sulla richiesta, prima del taglio: dopo non si vede più
+        self.saturazione = (Omega2 < 0) | (Omega2 > self.Omega_max**2)
+
         Omega2 = np.maximum(Omega2, 0)      # le eliche non possono spingere al contrario
         Omega_cmd = np.sqrt(Omega2)         # [rad/sec]
+        self.Omega_richieste = Omega_cmd.copy()
 
         self.comanda_motori(Omega_cmd)
 
@@ -150,6 +161,7 @@ class Drone:
 
         # Dinamica del primo ordine: la velocità reale insegue quella comandata
         self.Omega = self.Omega + self.alpha * (Omega_cmd - self.Omega)
+        self.u_realizzato = self.M @ self.Omega**2      # spinta [N] e coppie [N*m] applicate fino al prossimo passo
 
         # Asse di spinta delle eliche (asse z del drone) espresso nel mondo
         asse = self.R[:,2]
@@ -160,3 +172,34 @@ class Drone:
             self.sim.addForceAndTorque(self.eliche[i], (f*asse).tolist(), (Q*asse).tolist())
 
         return
+
+    def applica_forza_esterna(self, F):
+        # Forza [N] in terna mondo nel baricentro del corpo (scenario A: attrito, vento, raffica). Vale per un solo passo
+        self.sim.addForceAndTorque(self.radice, [float(f) for f in F], [0.0, 0.0, 0.0])
+
+        return
+
+    def imposta_posa(self, p, R):
+        # Posa iniziale della terna di /base nel mondo (posizione p [m], rotazione R). A simulazione ferma, prima di startSimulation
+        # Si muove la radice, e il resto del modello la segue: T_mondo_radice = T_mondo_base * inv(T_radice_base)
+        T_rb = np.array(self.sim.getObjectMatrix(self.drone, self.radice)).reshape(3,4)
+        R_wr = np.array(R) @ T_rb[:,:3].T
+        p_wr = np.array(p) - R_wr @ T_rb[:,3]
+        matrice = np.column_stack([R_wr, p_wr]).flatten()
+        self.sim.setObjectMatrix(self.radice, matrice.tolist(), self.sim.handle_world)
+
+        return
+
+
+def scala_carico(sim, path:str, fattore:float):
+    # Scenario B: massa e inerzia di ogni pezzo dinamico moltiplicate per lo stesso fattore, nella scena.
+    # A simulazione ferma e prima di creare il Drone, che così le legge (il controllore le conosce)
+    radice = sim.getObject(path)
+    for handle in sim.getObjectsInTree(radice, sim.sceneobject_shape):
+        if sim.getObjectInt32Param(handle, sim.shapeintparam_static) == 0:
+            massa = sim.getShapeMass(handle)
+            I_pezzo, com = sim.getShapeInertia(handle)
+            sim.setShapeMass(handle, fattore*massa)
+            sim.setShapeInertia(handle, [fattore*v for v in I_pezzo], com)  # dopo la massa: vale qualunque cosa faccia setShapeMass
+
+    return
