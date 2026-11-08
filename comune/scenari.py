@@ -8,6 +8,9 @@ criteri di fallimento). Non contiene guadagni: quelli vengono da comune/taratura
 
 Durata, finestre e istante della raffica si calcolano dal riferimento: se cambia un livello restano giusti.
 
+La soglia epsilon del tempo di convergenza è UNA PER PROVA E UGUALE PER I TRE CONTROLLORI: descrizione() non
+riceve il controllore, quindi BS, DFL e GEO leggono per costruzione la stessa epsilon. Va dichiarato nella relazione.
+
     python -m comune.scenari    -> elenca le 36 prove
 """
 import numpy as np
@@ -64,6 +67,11 @@ T1_A_FASI = [['F2', 4.0, 8.0], ['F3', 8.0, 13.0], ['F4', 13.0, 16.0]]
 # --- Criteri di fallimento: la prova si ferma al primo che scatta ---
 FALLIMENTO = {'errore_max': 3.0,    # distanza dal riferimento [m]
               'quota_min': 0.1}     # quota della terna del drone [m]: sotto, è a terra
+
+# --- Soglia epsilon del tempo di convergenza t_c (proposta, §4) ---
+# UNA PER PROVA E UGUALE PER I TRE CONTROLLORI: dipende solo dalla prova, mai da chi la esegue.
+EPS_RELATIVA = 0.05     # 5% dell'errore di posizione iniziale, se la prova parte spostata dal riferimento
+EPS_ASSOLUTA = 0.05     # [m] se l'errore iniziale è nullo (T1-N3, T1-A, T2, T3)
 
 TEST = ['T1', 'T2', 'T3']
 SCENARI = ['N', 'A', 'B', 'C']
@@ -139,6 +147,10 @@ def descrizione(test:str, scenario:str, livello:int):
     elif scenario == 'C':
         d['tau_m'] = TAU_M[livello - 1]
 
+    # Soglia epsilon: dall'errore iniziale della prova, quindi la stessa per BS, DFL e GEO
+    e0 = np.linalg.norm(np.subtract(d['posa']['p'], crea_riferimento(d['riferimento'])(0.0)['p']))
+    d['epsilon'] = round(EPS_RELATIVA*e0, 6) if e0 > 1e-9 else EPS_ASSOLUTA
+
     return d
 
 
@@ -170,7 +182,7 @@ def riga(d:dict):
         extra = " | carico x"+str(d['fattore_carico'])
     if d['tau_m'] != PARAM_MOTORI['tau_m']:
         extra = " | tau_m "+str(int(round(1000*d['tau_m'])))+" ms"
-    return d['id'].ljust(6)+" "+f"{d['durata']:5.2f}"+" s | "+r+extra
+    return d['id'].ljust(6)+" "+f"{d['durata']:5.2f}"+" s | eps "+f"{1000*d['epsilon']:4.1f}"+" mm | "+r+extra
 
 
 if __name__ == "__main__":

@@ -228,10 +228,14 @@ python Backstepping_control/simula.py --rifai          <i>rifà anche quelle gi�
         <tr><td class="name">T3</td><td>quadrato di 3 m, quote 1 e 2.5 m, <code>min_snap</code>; <code>v_media</code> = 1 · 2 · 2.5 m/s; F3 di A dall'inizio del tratto 2, per 4 s</td></tr>
         <tr><td class="name">A · B · C</td><td>vento 2 · 4 · 6 m/s con raffica +2 · +4 · +6; carico ×1.5 · ×2 · ×2.5; \(\tau_m\) = <strong>40 · 70 · 110</strong> ms</td></tr>
         <tr><td class="name">Controllori</td><td>da <code>taratura.py</code>: derivate filtrate a 20 ms, DFL in quota a −20 doppio, <code>angolo_max</code> 80°, \(T_{min}\) = 0.1 mg</td></tr>
+        <tr><td class="name">Soglia ε</td><td>5% dell'errore iniziale se la prova parte spostata (T1-N1: 5 mm; T1-N2, B, C: 7.5 cm), altrimenti 5 cm (T1-N3, T1-A, T2, T3). <strong>Uguale per i tre controllori.</strong></td></tr>
       </tbody>
     </table>
   </div>
   <p class="cap">In grassetto i due valori che il 7 novembre erano ancora da confermare: sono quelli proposti.</p>
+  <div class="note warn">
+    <p><strong>La soglia ε è una per prova ed è la stessa per BS, DFL e GEO.</strong> Definisce il tempo di convergenza \(t_c\): il primo istante dopo il quale l'errore di posizione resta sotto ε fino alla fine della fase. Dipende solo dalla prova, mai dal controllore: <code>scenari.descrizione(test, scenario, livello)</code> non riceve il controllore, quindi i tre leggono per costruzione lo stesso valore, salvato in <code>metadati.json</code> di ogni prova. Va dichiarato nella relazione.</p>
+  </div>
 </section>
 
 <!-- ============================================================ 7 -->
