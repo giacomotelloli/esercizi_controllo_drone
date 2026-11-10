@@ -14,10 +14,11 @@ Svolgimento di una prova:
   3. Drone con i PARAM_MOTORI della prova (scenario C: tau_m): legge m e J, motori già a Omega_h
   4. guadagni da comune/taratura.py con m e J appena letti; controllore creato e azzerato
   5. posa iniziale della prova
-  6. ciclo: stato -> riferimento -> [cronometro] calcola [cronometro] -> aria -> motori -> log -> criteri -> sim.step()
-  7. simulazione ferma, log scritto tutto insieme (comune/registro.py)
+  6. ciclo: stato -> riferimento -> [cronometro] calcola [cronometro] -> aria -> motori -> log -> criteri -> [video] -> sim.step()
+  7. simulazione ferma, log scritto tutto insieme (comune/registro.py); con --video, video.mp4 nella stessa cartella
 """
 import argparse
+import shutil
 import subprocess
 import time
 from datetime import datetime
@@ -25,7 +26,7 @@ from pathlib import Path
 
 import numpy as np
 
-from comune import registro, scenari, taratura
+from comune import registro, scenari, taratura, video as filmato
 from comune.aria import Aria
 from comune.drone import Drone, scala_carico
 from comune.rotazioni import matrice_R
@@ -108,7 +109,7 @@ def controlla(p, p_d, T, tau, criteri:dict):
     return None
 
 
-def esegui_prova(sim, descr:dict, nome:str, Classe, cartella:Path, nominale, prefisso:str = ''):
+def esegui_prova(sim, descr:dict, nome:str, Classe, cartella:Path, nominale, prefisso:str = '', video:bool = False):
     t_reale = time.time()
 
     # 1-2. Scena pulita e carico
@@ -137,6 +138,12 @@ def esegui_prova(sim, descr:dict, nome:str, Classe, cartella:Path, nominale, pre
     aria = Aria(descr['aria'], drone.massa)
     drone.imposta_posa(descr['posa']['p'], matrice_R(descr['posa']['eta']))
 
+    # Telecamera e disegni per il video, a scena pronta; il file si sposta nella cartella della prova a log salvato
+    ripresa = None
+    if video:
+        file_video = cartella.with_name(cartella.name + '.video.mp4')
+        ripresa = filmato.Ripresa(sim, file_video, descr, rif, nome, aria)
+
     S = {chiave: [] for chiave in CHIAVI_SERIE}
     nomi_interne = [n for n in INTERNE[nome] if hasattr(ctrl, n)]
     I = {n: [] for n in nomi_interne}
@@ -147,7 +154,7 @@ def esegui_prova(sim, descr:dict, nome:str, Classe, cartella:Path, nominale, pre
     sim.setStepping(True)
     sim.startSimulation()
     try:
-        for _ in range(N):
+        for k in range(N):
             t = sim.getSimulationTime()
             drone.aggiorna_stato()
             stato = {'p': drone.p.copy(), 'v': drone.v.copy(), 'R': drone.R.copy(), 'eta': drone.eta.copy(), 'omega': drone.omega.copy()}
@@ -189,11 +196,17 @@ def esegui_prova(sim, descr:dict, nome:str, Classe, cartella:Path, nominale, pre
                 I[n].append(np.array(getattr(ctrl, n), dtype=float).copy())
 
             motivo = controlla(stato['p'], np.array(r['p']), T, tau, descr['fallimento'])
+            if ripresa is not None:
+                ripresa.fotogramma(k, t, stato['p'], r['p'], ultimo=(motivo is not None or k == N - 1))
             if motivo is not None:
                 esito = {'riuscita': False, 'motivo': motivo, 't_fallimento': t}
                 break
 
             sim.step()
+    except BaseException:
+        if ripresa is not None:
+            ripresa.annulla()
+        raise
     finally:
         ferma(sim)
 
@@ -220,8 +233,13 @@ def esegui_prova(sim, descr:dict, nome:str, Classe, cartella:Path, nominale, pre
         'esito': esito,
         'riassunto': riassunto,
         'chiavi_interne': nomi_interne,
+        'video': filmato.NOME_FILE if video else None,
     }
+    if ripresa is not None:
+        ripresa.chiudi(esito, riassunto)
     registro.salva(cartella, metadati, serie, interne)
+    if ripresa is not None:
+        shutil.move(ripresa.file, cartella / filmato.NOME_FILE)
 
     testo_esito = "riuscita" if esito['riuscita'] else "FALLITA ("+esito['motivo']+" a t = "+f"{esito['t_fallimento']:.2f}"+" s)"
     testo_errore = "" if riassunto['e_max'] is None else " | e medio "+f"{1000*riassunto['e_medio']:.1f}"+" mm, e max "+f"{1000*riassunto['e_max']:.1f}"+" mm"
@@ -238,6 +256,9 @@ def esegui_campagna(nome:str, Classe, cartella_out, argomenti = None):
     parser.add_argument('--livello', nargs='+', type=int, choices=scenari.LIVELLI, help="solo questi livelli")
     parser.add_argument('--rifai', action='store_true', help="rifà anche le prove già in out/")
     parser.add_argument('--elenco', action='store_true', help="elenca le prove senza simulare")
+    parser.add_argument('--video', action='store_true',
+                        help="registra anche il video di queste prove (out/<id>_"+nome+"/video.mp4); "
+                             "una prova già fatta senza video si rifà, così log e video vengono dalla stessa simulazione")
     a = parser.parse_args(argomenti)
 
     elenco = scenari.prove(a.test, a.scenario, a.livello)
@@ -245,10 +266,14 @@ def esegui_campagna(nome:str, Classe, cartella_out, argomenti = None):
 
     if a.elenco:
         for d in elenco:
-            fatta = registro.fatta(cartella_out / (d['id']+'_'+nome))
-            print(scenari.riga(d)+("   [fatta]" if fatta else ""))
+            cartella = cartella_out / (d['id']+'_'+nome)
+            segni = ("   [fatta]" if registro.fatta(cartella) else "") + ("   [video]" if (cartella / filmato.NOME_FILE).exists() else "")
+            print(scenari.riga(d)+segni)
         print(str(len(elenco))+" prove per "+nome+", in "+str(cartella_out))
         return
+
+    if a.video:
+        filmato.serve_ffmpeg()
 
     from coppeliasim_zmqremoteapi_client import RemoteAPIClient
     client = RemoteAPIClient()
@@ -262,9 +287,11 @@ def esegui_campagna(nome:str, Classe, cartella_out, argomenti = None):
         cartella = cartella_out / (d['id']+'_'+nome)
         prefisso = "["+str(i+1)+"/"+str(len(elenco))+"] "+cartella.name
         if registro.fatta(cartella) and not a.rifai:
-            print(prefisso+": già fatta, la salto (--rifai per rifarla)")
-            continue
-        esegui_prova(sim, d, nome, Classe, cartella, nominale, prefisso)
+            if not a.video or (cartella / filmato.NOME_FILE).exists():
+                print(prefisso+": già fatta, la salto (--rifai per rifarla)")
+                continue
+            print(prefisso+": già fatta senza video, la rifaccio per registrarlo")
+        esegui_prova(sim, d, nome, Classe, cartella, nominale, prefisso, video=a.video)
 
     # Alla fine resta aperta la scena del file, senza le modifiche dell'ultima prova
     prepara_scena(sim)

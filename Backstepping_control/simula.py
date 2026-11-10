@@ -11,6 +11,7 @@ Uso, con CoppeliaSim aperto (la scena la carica lo script):
     python Backstepping_control/simula.py --test T1 --scenario N      solo alcune (anche --livello 1 2)
     python Backstepping_control/simula.py --elenco                    elenca le prove senza simulare
     python Backstepping_control/simula.py --rifai                     rifà anche quelle già in out/
+    python Backstepping_control/simula.py --test T2 --livello 2 --video  anche il video, in out/<id>_BS/video.mp4
 """
 import sys
 from pathlib import Path

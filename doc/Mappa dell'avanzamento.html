@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mappa dell'avanzamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400&display=swap">
+<style>
+/* Stessi colori e caratteri di "Campagna delle simulazioni.html" */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f6;
+  --surface: #fcfcfd;
+  --fg: #15181d;
+  --fg2: #4a515b;
+  --muted: #7c848f;
+  --line: rgba(21, 24, 29, 0.11);
+  --accent: #1f5bb5;
+  --crit: #d03b3b;
+  --good-ink: #006300;
+  --warn-ink: #8a5600;
+  --wash: rgba(42, 120, 214, 0.07);
+  --ok: #3a9a52;
+  --ok-wash: rgba(0, 120, 0, 0.08);
+  --warn-wash: rgba(170, 110, 0, 0.10);
+  --crit-wash: rgba(208, 59, 59, 0.08);
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+    --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+    --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440;
+    --wash: rgba(57, 135, 229, 0.12);
+    --ok: #36a350; --ok-wash: rgba(53, 185, 53, 0.10); --warn-wash: rgba(224, 164, 64, 0.12); --crit-wash: rgba(224, 90, 90, 0.12);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1114; --surface: #161a1f; --fg: #e8ecf1; --fg2: #bac1ca; --muted: #8a929c;
+  --line: rgba(255, 255, 255, 0.10); --accent: #7ba8ee;
+  --crit: #e05a5a; --good-ink: #35b935; --warn-ink: #e0a440;
+  --wash: rgba(57, 135, 229, 0.12);
+  --ok: #36a350; --ok-wash: rgba(53, 185, 53, 0.10); --warn-wash: rgba(224, 164, 64, 0.12); --crit-wash: rgba(224, 90, 90, 0.12);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.62 var(--f-body);
+  font-optical-sizing: auto;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 40px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px));
+  display: grid;
+  gap: 44px;
+}
+.col { max-width: 720px; width: 100%; margin: 0 auto; display: grid; gap: 14px; min-width: 0; }
+.col > * { margin: 0; }
+.wide { width: 100%; display: grid; gap: 16px; min-width: 0; }
+.wide > * { margin: 0; }
+section { display: grid; gap: 20px; min-width: 0; }
+
+h1, h2, h3 { font-family: var(--f-display); font-stretch: 88%; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); font-weight: 760; letter-spacing: -0.01em; }
+h2 { font-size: 27px; font-weight: 720; }
+.eyebrow { font: 600 12.5px/1.2 var(--f-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg2); }
+.sec-num { font: 500 14px var(--f-mono); color: var(--accent); display: block; margin-bottom: 6px; }
+.lede { font-size: 19.5px; line-height: 1.55; }
+.meta { font: 500 13px/1.5 var(--f-mono); color: var(--fg2); }
+p { text-wrap: pretty; }
+code { font-family: var(--f-mono); font-size: 0.86em; background: var(--wash); padding: 0.05em 0.35em; border-radius: 3px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 7px; }
+li::marker { color: var(--accent); }
+.cap { font-size: 14.5px; color: var(--fg2); }
+
+/* Contatori */
+.conto { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.conto div { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.conto b { font: 700 28px/1.1 var(--f-display); font-stretch: 88%; font-variant-numeric: tabular-nums; }
+.conto b small { font-size: 18px; color: var(--muted); font-weight: 600; }
+.conto span { font: 500 13px/1.35 var(--f-display); color: var(--fg2); }
+
+/* Stato: chip comune */
+.chip { display: inline-block; font: 600 11.5px/1 var(--f-display); letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 7px 3px; border-radius: 4px; white-space: nowrap; }
+.s-fatto { color: var(--good-ink); background: var(--ok-wash); }
+.s-corso { color: var(--warn-ink); background: var(--warn-wash); }
+.s-dafare { color: var(--fg2); background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
+.s-esclusa { color: var(--muted); background: transparent; box-shadow: inset 0 0 0 1px var(--line); text-decoration: line-through; }
+
+/* Le fasi come percorso */
+.fasi { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.fase { background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--line); border-radius: 8px; padding: 12px 14px 14px; display: grid; gap: 7px; align-content: start; }
+.fase.fatto { border-top-color: var(--ok); }
+.fase.corso { border-top-color: var(--warn-ink); }
+.fase.dafare { border-top-color: var(--muted); border-top-style: dashed; }
+.fase.esclusa { opacity: 0.6; border-top-style: dotted; }
+.fase .testa { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.fase .n { font: 600 14px var(--f-mono); color: var(--accent); }
+.fase h3 { font-size: 17.5px; font-weight: 680; }
+.fase p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--fg2); }
+.fase .doppio { display: grid; gap: 4px; margin-top: 2px; }
+.fase .riga { display: grid; grid-template-columns: 78px 1fr; gap: 8px; align-items: center; font: 500 12.5px/1.3 var(--f-display); color: var(--fg2); }
+.barra { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.barra i { display: block; height: 100%; background: var(--ok); }
+.barra.vuota i { width: 0; }
+
+/* Prodotti */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 13px/1.35 var(--f-display); color: var(--fg2); letter-spacing: 0.02em; background: var(--bg); }
+td.name { font: 600 14.5px/1.35 var(--f-display); font-stretch: 92%; }
+tr:last-child td { border-bottom: 0; }
+.ip { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.ip span { font: 500 12px/1 var(--f-mono); padding: 4px 6px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg2); }
+.ip span.parz { color: var(--warn-ink); background: var(--warn-wash); box-shadow: none; }
+.ip span.no { color: var(--crit); background: var(--crit-wash); box-shadow: none; }
+@media (max-width: 640px) {
+  table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; }
+  table.stack thead { display: none; }
+  table.stack tr { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  table.stack tr:last-child { border-bottom: 0; }
+  table.stack td { border-bottom: 0; padding: 3px 14px; }
+}
+
+/* La griglia 3 x 4 */
+.mappa-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 14px; }
+.mappa { display: grid; grid-template-columns: 92px repeat(4, minmax(118px, 1fr)); gap: 10px; min-width: 590px; }
+.mappa .th { font: 600 13px/1.3 var(--f-display); color: var(--fg2); letter-spacing: 0.02em; align-self: end; }
+.mappa .rh { font: 650 15px/1.25 var(--f-display); font-stretch: 92%; align-self: center; }
+.mappa .rh small { display: block; font: 500 12.5px var(--f-display); color: var(--fg2); }
+.cella { border: 1px solid var(--line); border-radius: 6px; padding: 8px; display: grid; gap: 6px; justify-items: start; }
+.cella.tutto { background: var(--ok-wash); }
+.cella .conta { font: 600 12.5px var(--f-mono); color: var(--fg2); }
+.mini { display: grid; grid-template-columns: 30px repeat(3, 20px); gap: 3px; align-items: center; }
+.mini .lab { font: 500 10.5px/1 var(--f-mono); color: var(--fg2); }
+.mini .lv { font: 500 10.5px/1 var(--f-mono); color: var(--muted); text-align: center; }
+.q { width: 20px; height: 20px; border-radius: 3px; background: var(--ok); position: relative; display: grid; place-items: center; font: 700 12px/1 var(--f-display); color: #fff; cursor: default; }
+.q.ko { background: var(--crit); }
+.q.vid::after { content: ""; position: absolute; inset: -3px; border: 2px solid var(--accent); border-radius: 5px; }
+.legenda { display: flex; flex-wrap: wrap; gap: 16px; font: 500 13px/1.3 var(--f-display); color: var(--fg2); align-items: center; }
+.legenda span { display: inline-flex; gap: 7px; align-items: center; }
+.legenda .q { width: 14px; height: 14px; font-size: 10px; }
+.legenda .q.vid::after { inset: -3px; border-radius: 4px; }
+
+.note { border-left: 3px solid var(--accent); background: var(--surface); padding: 12px 16px; border-radius: 0 6px 6px 0; display: grid; gap: 8px; }
+.note > * { margin: 0; }
+.note.warn { border-left-color: var(--crit); }
+.passi { counter-reset: p; list-style: none; padding: 0; gap: 0; }
+.passi li { counter-increment: p; display: grid; grid-template-columns: 34px 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.passi li::before { content: counter(p); font: 600 15px var(--f-mono); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="col">
+  <div class="eyebrow">Elective in Robotics · confronto BS / DFL / GEO · 10 novembre 2026</div>
+  <h1>Mappa dell'avanzamento</h1>
+  <p class="lede">Le fasi del piano e i prodotti promessi nella proposta: che cosa è chiuso e che cosa manca.</p>
+  <p class="meta">Fasi da <code>STEPS_progetto.md</code> · prodotti da <code>definizione_proposta.tex</code> (Risultati attesi) · griglia da <em>Campagna delle simulazioni</em>. Log: commit 2eaf72d con modifiche non committate.</p>
+  <div class="conto" aria-label="Riepilogo">
+    <div><b>4<small> / 8</small></b><span>fasi chiuse (la 7, facoltativa, è esclusa)</span></div>
+    <div><b>108<small> / 108</small></b><span>simulazioni con log completo</span></div>
+    <div><b>14<small> / 14</small></b><span>video registrati</span></div>
+    <div><b>0<small> / 5</small></b><span>prodotti della proposta consegnati</span></div>
+  </div>
+</header>
+
+<!-- 1 · Le fasi -->
+<section class="wide" id="fasi">
+  <div class="col"><div><span class="sec-num">1</span><h2>Le fasi del piano</h2></div></div>
+  <ol class="fasi">
+    <li class="fase fatto">
+      <div class="testa"><span class="n">0</span><span class="chip s-fatto">fatto</span></div>
+      <h3>Analisi lineare in hover</h3>
+      <p><code>analisi/lineare.py</code>, pagina <em>Analisi lineare in hover</em>.</p>
+    </li>
+    <li class="fase fatto">
+      <div class="testa"><span class="n">1</span><span class="chip s-fatto">fatto</span></div>
+      <h3>Taratura nel codice</h3>
+      <p>Guadagni dei tre dai poli in <code>comune/taratura.py</code>.</p>
+    </li>
+    <li class="fase fatto">
+      <div class="testa"><span class="n">2</span><span class="chip s-fatto">fatto</span></div>
+      <h3>Codice delle prove</h3>
+      <p>Un ciclo comune e un log per prova. Uno script per controllore al posto dei 12 main.</p>
+    </li>
+    <li class="fase fatto">
+      <div class="testa"><span class="n">3</span><span class="chip s-fatto">fatto</span></div>
+      <h3>DFL e GEO</h3>
+      <p>Stessa interfaccia del BS, stessi poli.</p>
+    </li>
+    <li class="fase corso">
+      <div class="testa"><span class="n">4</span><span class="chip s-corso">quasi</span></div>
+      <h3>Verifica della taratura</h3>
+      <p>Offline fatta. In T1-N1 le tre risposte distano al massimo 0.5 mm. Manca il confronto con la previsione lineare (soglia 2 mm).</p>
+    </li>
+    <li class="fase corso">
+      <div class="testa"><span class="n">5</span><span class="chip s-corso">in corso</span></div>
+      <h3>Campagna nominale</h3>
+      <div class="doppio">
+        <div class="riga"><span>simulazioni</span><div class="barra"><i style="width:100%"></i></div></div>
+        <div class="riga"><span>analisi</span><div class="barra vuota"><i></i></div></div>
+      </div>
+      <p>27 prove fatte. Mancano le curve di difficoltà. Tutti e tre riescono a N2 in T2 e T3, <strong>non in T1</strong>.</p>
+    </li>
+    <li class="fase corso">
+      <div class="testa"><span class="n">6</span><span class="chip s-corso">in corso</span></div>
+      <h3>Campagna degli scenari</h3>
+      <div class="doppio">
+        <div class="riga"><span>simulazioni</span><div class="barra"><i style="width:100%"></i></div></div>
+        <div class="riga"><span>analisi</span><div class="barra vuota"><i></i></div></div>
+      </div>
+      <p>81 prove fatte. Mancano la mappa 3×4 e le curve di degrado.</p>
+    </li>
+    <li class="fase esclusa">
+      <div class="testa"><span class="n">7</span><span class="chip s-esclusa">esclusa</span></div>
+      <h3>Sensibilità alla taratura</h3>
+      <p>Facoltativa, fuori griglia: esclusa il 7 novembre.</p>
+    </li>
+    <li class="fase dafare">
+      <div class="testa"><span class="n">8</span><span class="chip s-dafare">da fare</span></div>
+      <h3>Analisi e presentazione</h3>
+      <p>Metriche per fase, tabelle e un verdetto per ciascuna ipotesi.</p>
+    </li>
+  </ol>
+</section>
+
+<!-- 2 · I prodotti -->
+<section class="col" id="prodotti">
+  <div><span class="sec-num">2</span><h2>I prodotti promessi nella proposta</h2></div>
+  <div class="table-wrap">
+    <table class="stack">
+      <thead><tr><th>Prodotto</th><th>Stato</th><th>Che cosa manca</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="name">Tabelle delle metriche per riferimento, scenario, livello e fase</td>
+          <td><span class="chip s-dafare">da fare</span></td>
+          <td><code>analisi/metriche.py</code>: dai 108 log un'unica tabella m(c, r, s, ℓ, f). È la base di tutto il resto.</td>
+        </tr>
+        <tr>
+          <td class="name">Mappa di sintesi 3×4</td>
+          <td><span class="chip s-dafare">da fare</span></td>
+          <td>Il migliore in ogni cella e il distacco dal secondo, con il criterio di rilevanza (10 % e 5 mm).</td>
+        </tr>
+        <tr>
+          <td class="name">Curve di difficoltà e di degrado</td>
+          <td><span class="chip s-dafare">da fare</span></td>
+          <td>Difficoltà: N1–N3 di T2 e T3 contro l'inclinazione richiesta. Degrado: A, B, C contro N2. Il livello di rottura si legge già dagli esiti (§3).</td>
+        </tr>
+        <tr>
+          <td class="name">Un verdetto per ogni ipotesi</td>
+          <td><span class="chip s-dafare">da fare</span></td>
+          <td>Ci sono i dati per cinque ipotesi su sette.
+            <div class="ip" aria-label="Ipotesi">
+              <span>H1</span><span>H2</span><span class="parz" title="Un solo caso: 120° di beccheggio">H3 · un caso</span><span>H4</span><span>H5</span><span class="no" title="La variante di regolarità è fuori griglia">H6 · senza prova</span><span>H7</span>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="name">Codice e dati riproducibili</td>
+          <td><span class="chip s-corso">quasi</span></td>
+          <td>Ogni log ha i parametri e il commit. Mancano il commit di <code>esecuzione.py</code>, dei tre <code>simula.py</code> e di <code>video.py</code>, e una copia di <code>out/</code>, che è fuori da git.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- 3 · La griglia -->
+<section class="wide" id="griglia">
+  <div class="col">
+    <div><span class="sec-num">3</span><h2>La griglia delle prove</h2></div>
+    <p>108 prove su 108: <strong>90 riuscite, 18 fallite</strong>. In ogni cella: righe = controllori, colonne = livelli 1 · 2 · 3. Passa sopra un quadrato per l'istante del fallimento.</p>
+  </div>
+  <div class="mappa-wrap"><div class="mappa" id="mappa" role="table" aria-label="Esito delle 108 prove"></div></div>
+  <div class="legenda col">
+    <span><i class="q"></i>riuscita</span>
+    <span><i class="q ko">×</i>fallita</span>
+    <span><i class="q vid"></i>con video</span>
+  </div>
+</section>
+
+<!-- 4 · Prima dell'analisi -->
+<section class="col" id="prossimi">
+  <div><span class="sec-num">4</span><h2>Prima dell'analisi</h2></div>
+  <div class="note warn">
+    <p><strong>Da decidere: T1-N2.</strong> La regola della campagna chiede che a N2 riescano tutti e tre, perché T1-B e T1-C partono come N2. In T1 non succede: BS e DFL falliscono già in N2 (dopo 1.65 s e 0.65 s). Nel primo mezzo secondo hanno i motori saturi nel 100 % dei passi, contro il 49 % di GEO, e si ribaltano. In T1-B e T1-C il loro fallimento viene quindi dal nominale, non dallo scenario.</p>
+    <p>Ci sono due strade. Si può dichiararlo nella relazione. Oppure si cambia N2, per esempio togliendo i 90° di yaw, e si rifanno T1-N2, B e C: sono 21 prove, tutte dentro la griglia. Resta da capire anche perché a ×2.5 (B3) BS e DFL riescono, mentre a ×1.5 e ×2 no.</p>
+  </div>
+  <ol class="passi">
+    <li><div>Commit del codice che ha prodotto i log e copia di <code>out/</code>.</div></li>
+    <li><div>Decisione su T1-N2.</div></li>
+    <li><div><code>analisi/metriche.py</code>: la tabella unica delle metriche per fase.</div></li>
+    <li><div>Chiudere la fase 4: T1-N1 contro la previsione lineare.</div></li>
+    <li><div>Rapporto dei risultati in HTML: tabelle, mappa 3×4, curve, verdetti H1–H7.</div></li>
+  </ol>
+</section>
+
+</div>
+<script>
+// Esito delle 108 prove, dai metadati.json in <controllore>/out/<id>/: 1 = riuscita, altrimenti istante del fallimento [s]
+const ESITI = {"T1_N1_BS":1,"T1_N2_BS":1.65,"T1_N3_BS":0.44,"T1_A1_BS":1,"T1_A2_BS":1,"T1_A3_BS":1,"T1_B1_BS":1,"T1_B2_BS":1.6,"T1_B3_BS":1,"T1_C1_BS":1.21,"T1_C2_BS":1.05,"T1_C3_BS":1.15,"T2_N1_BS":1,"T2_N2_BS":1,"T2_N3_BS":1,"T2_A1_BS":1,"T2_A2_BS":1,"T2_A3_BS":1,"T2_B1_BS":1,"T2_B2_BS":1,"T2_B3_BS":1,"T2_C1_BS":1,"T2_C2_BS":1,"T2_C3_BS":1,"T3_N1_BS":1,"T3_N2_BS":1,"T3_N3_BS":1,"T3_A1_BS":1,"T3_A2_BS":1,"T3_A3_BS":1,"T3_B1_BS":1,"T3_B2_BS":1,"T3_B3_BS":1,"T3_C1_BS":1,"T3_C2_BS":1,"T3_C3_BS":1,"T1_N1_DFL":1,"T1_N2_DFL":0.65,"T1_N3_DFL":1.2,"T1_A1_DFL":1,"T1_A2_DFL":1,"T1_A3_DFL":1,"T1_B1_DFL":0.76,"T1_B2_DFL":1.02,"T1_B3_DFL":1,"T1_C1_DFL":0.71,"T1_C2_DFL":0.85,"T1_C3_DFL":0.94,"T2_N1_DFL":1,"T2_N2_DFL":1,"T2_N3_DFL":2.14,"T2_A1_DFL":1,"T2_A2_DFL":1,"T2_A3_DFL":11.84,"T2_B1_DFL":1,"T2_B2_DFL":1,"T2_B3_DFL":1,"T2_C1_DFL":1,"T2_C2_DFL":1,"T2_C3_DFL":1,"T3_N1_DFL":1,"T3_N2_DFL":1,"T3_N3_DFL":1.82,"T3_A1_DFL":1,"T3_A2_DFL":1,"T3_A3_DFL":1,"T3_B1_DFL":1,"T3_B2_DFL":1,"T3_B3_DFL":1,"T3_C1_DFL":1,"T3_C2_DFL":1,"T3_C3_DFL":1,"T1_N1_GEO":1,"T1_N2_GEO":1,"T1_N3_GEO":1,"T1_A1_GEO":1,"T1_A2_GEO":1,"T1_A3_GEO":1,"T1_B1_GEO":1,"T1_B2_GEO":1,"T1_B3_GEO":1,"T1_C1_GEO":1,"T1_C2_GEO":1,"T1_C3_GEO":1,"T2_N1_GEO":1,"T2_N2_GEO":1,"T2_N3_GEO":0.63,"T2_A1_GEO":1,"T2_A2_GEO":1,"T2_A3_GEO":1,"T2_B1_GEO":1,"T2_B2_GEO":1,"T2_B3_GEO":1,"T2_C1_GEO":1,"T2_C2_GEO":1,"T2_C3_GEO":1,"T3_N1_GEO":1,"T3_N2_GEO":1,"T3_N3_GEO":1.95,"T3_A1_GEO":1,"T3_A2_GEO":1,"T3_A3_GEO":1,"T3_B1_GEO":1,"T3_B2_GEO":1,"T3_B3_GEO":1,"T3_C1_GEO":1,"T3_C2_GEO":1,"T3_C3_GEO":1};
+const VIDEO = new Set(["T2_N2_BS","T2_A2_BS","T2_B2_BS","T2_C2_BS","T3_N3_BS","T2_N2_DFL","T2_A2_DFL","T2_B2_DFL","T2_C2_DFL","T3_N3_DFL","T2_N2_GEO","T2_A2_GEO","T2_B2_GEO","T2_C2_GEO"]);
+
+const TEST = [["T1", "hover"], ["T2", "otto"], ["T3", "waypoint"]];
+const SCEN = [["N", "N nominale"], ["A", "A aria"], ["B", "B carico"], ["C", "C motori"]];
+const CTRL = ["BS", "DFL", "GEO"];
+
+function el(tag, cls, testo) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (testo !== undefined) e.textContent = testo;
+  return e;
+}
+
+const mappa = document.getElementById("mappa");
+mappa.appendChild(el("div", "th", ""));
+SCEN.forEach(([, nome]) => mappa.appendChild(el("div", "th", nome)));
+
+TEST.forEach(([t, nome]) => {
+  const rh = el("div", "rh", t);
+  rh.appendChild(el("small", "", nome));
+  mappa.appendChild(rh);
+  SCEN.forEach(([s]) => {
+    const cella = el("div", "cella");
+    const mini = el("div", "mini");
+    mini.appendChild(el("span", "", ""));
+    [1, 2, 3].forEach(l => mini.appendChild(el("span", "lv", String(l))));
+    let ok = 0;
+    CTRL.forEach(c => {
+      mini.appendChild(el("span", "lab", c));
+      [1, 2, 3].forEach(l => {
+        const id = `${t}_${s}${l}_${c}`;
+        const v = ESITI[id];
+        const q = el("span", "q");
+        if (v === 1) { ok++; q.title = `${id}: riuscita`; }
+        else { q.classList.add("ko"); q.textContent = "×"; q.title = `${id}: fallita a ${v.toFixed(2)} s`; }
+        if (VIDEO.has(id)) { q.classList.add("vid"); q.title += " · video"; }
+        mini.appendChild(q);
+      });
+    });
+    if (ok === 9) cella.classList.add("tutto");
+    cella.appendChild(mini);
+    cella.appendChild(el("span", "conta", `${ok}/9 riuscite`));
+    mappa.appendChild(cella);
+  });
+});
+</script>
+</body>
+</html>
